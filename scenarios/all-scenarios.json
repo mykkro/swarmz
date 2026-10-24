@@ -1,0 +1,676 @@
+[
+  {
+    "version": 1,
+    "id": "sardine-bait-ball",
+    "name": "Sardine Bait Ball",
+    "kind": "Fish",
+    "description": "A school of sardines packs into a spinning ball while three tuna drive through it. Fish flee inside a 12-unit fear radius, which opens the hollow lanes seen in real bait balls.",
+    "agents": {
+      "count": 12000,
+      "model": "fish",
+      "size": 1
+    },
+    "render": {
+      "mode": "models",
+      "sky": [
+        "#03141d",
+        "#1c6c8c"
+      ],
+      "fogColor": "#0a3346",
+      "fog": 0.01,
+      "palette": [
+        "#dfeaf0",
+        "#6d93a8"
+      ],
+      "accent": "#ff9f43",
+      "blend": "alpha",
+      "ground": null,
+      "gridColor": "#ffffff"
+    },
+    "bounds": {
+      "shape": "sphere",
+      "center": [
+        0,
+        0,
+        0
+      ],
+      "radius": 46,
+      "halfSize": [
+        46,
+        46,
+        46
+      ],
+      "floor": null,
+      "force": 2
+    },
+    "boids": {
+      "neighborRadius": 4.5,
+      "separationRadius": 1.6,
+      "separation": 1.8,
+      "alignment": 1.2,
+      "cohesion": 0.8,
+      "maxSpeed": 16,
+      "minSpeed": 7,
+      "maxForce": 30,
+      "noise": 0.15,
+      "maxNeighbors": 20
+    },
+    "behaviors": [
+      {
+        "type": "vortex",
+        "center": [
+          0,
+          0,
+          0
+        ],
+        "strength": 0.55
+      },
+      {
+        "type": "attractor",
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "strength": 0.25
+      },
+      {
+        "type": "predator",
+        "count": 3,
+        "model": "fish",
+        "scale": 5,
+        "speed": 25,
+        "force": 26,
+        "fearRadius": 12,
+        "fearStrength": 4.5,
+        "retargetSeconds": 4
+      }
+    ],
+    "simulation": {
+      "speed": 1
+    },
+    "camera": {
+      "distance": 125,
+      "yaw": 0.7,
+      "pitch": 0.15,
+      "target": [
+        0,
+        0,
+        0
+      ],
+      "autoRotate": 0.06
+    }
+  },
+  {
+    "version": 1,
+    "id": "starling-murmuration",
+    "name": "Starling Murmuration",
+    "kind": "Birds",
+    "description": "Starlings over a winter reed bed at dusk. Each bird tracks at most 7 neighbours, the topological count measured in real flocks, so waves of turning ripple across the whole cloud. A peregrine falcon makes passes through it.",
+    "agents": {
+      "count": 16000,
+      "model": "bird",
+      "size": 0.7
+    },
+    "render": {
+      "mode": "points",
+      "sky": [
+        "#f2b48c",
+        "#56688f"
+      ],
+      "fogColor": "#c8a397",
+      "fog": 0.0035,
+      "palette": [
+        "#14161c",
+        "#2d2f39"
+      ],
+      "accent": "#d94a32",
+      "blend": "alpha",
+      "ground": null,
+      "gridColor": "#ffffff"
+    },
+    "bounds": {
+      "shape": "box",
+      "center": [
+        0,
+        20,
+        0
+      ],
+      "radius": 90,
+      "halfSize": [
+        95,
+        38,
+        70
+      ],
+      "floor": null,
+      "force": 1.4
+    },
+    "boids": {
+      "neighborRadius": 6,
+      "separationRadius": 1.8,
+      "separation": 1.6,
+      "alignment": 1.7,
+      "cohesion": 0.9,
+      "maxSpeed": 22,
+      "minSpeed": 12,
+      "maxForce": 26,
+      "noise": 0.25,
+      "maxNeighbors": 7
+    },
+    "behaviors": [
+      {
+        "type": "attractor",
+        "position": [
+          0,
+          20,
+          0
+        ],
+        "strength": 0.35,
+        "motion": {
+          "amp": [
+            55,
+            12,
+            35
+          ],
+          "freq": [
+            0.045,
+            0.07,
+            0.035
+          ]
+        }
+      },
+      {
+        "type": "predator",
+        "count": 1,
+        "model": "bird",
+        "scale": 3,
+        "speed": 32,
+        "force": 30,
+        "fearRadius": 18,
+        "fearStrength": 5,
+        "retargetSeconds": 6
+      }
+    ],
+    "simulation": {
+      "speed": 1
+    },
+    "camera": {
+      "distance": 190,
+      "yaw": 0.3,
+      "pitch": 0.05,
+      "target": [
+        0,
+        20,
+        0
+      ],
+      "autoRotate": 0.04
+    }
+  },
+  {
+    "version": 1,
+    "id": "midge-swarm",
+    "name": "Midge Swarms",
+    "kind": "Insects",
+    "description": "Male midges hover over landmarks such as reed tips and fence posts, forming tight dancing columns. Alignment is almost off and random jitter is high, so the cloud buzzes in place instead of travelling.",
+    "agents": {
+      "count": 6000,
+      "model": "insect",
+      "size": 0.5
+    },
+    "render": {
+      "mode": "discs",
+      "sky": [
+        "#16130b",
+        "#38402a"
+      ],
+      "fogColor": "#1b1a10",
+      "fog": 0.012,
+      "palette": [
+        "#ffe9a3",
+        "#b8d27a"
+      ],
+      "accent": "#ffd24a",
+      "blend": "additive",
+      "ground": {
+        "y": -2,
+        "size": 60,
+        "step": 4
+      },
+      "gridColor": "#8fa070"
+    },
+    "bounds": {
+      "shape": "sphere",
+      "center": [
+        0,
+        8,
+        0
+      ],
+      "radius": 34,
+      "halfSize": [
+        34,
+        34,
+        34
+      ],
+      "floor": -1,
+      "force": 1.5
+    },
+    "boids": {
+      "neighborRadius": 3,
+      "separationRadius": 0.9,
+      "separation": 1.3,
+      "alignment": 0.15,
+      "cohesion": 0.35,
+      "maxSpeed": 9,
+      "minSpeed": 2,
+      "maxForce": 60,
+      "noise": 1.4,
+      "maxNeighbors": 16
+    },
+    "behaviors": [
+      {
+        "type": "markers",
+        "points": [
+          [
+            0,
+            9,
+            0
+          ],
+          [
+            16,
+            6,
+            -10
+          ],
+          [
+            -14,
+            11,
+            8
+          ]
+        ],
+        "strength": 1.1,
+        "hover": 3
+      }
+    ],
+    "simulation": {
+      "speed": 1
+    },
+    "camera": {
+      "distance": 62,
+      "yaw": 0.9,
+      "pitch": 0.12,
+      "target": [
+        0,
+        7,
+        0
+      ],
+      "autoRotate": 0.05
+    }
+  },
+  {
+    "version": 1,
+    "id": "monarch-migration",
+    "name": "Monarch Migration",
+    "kind": "Butterflies",
+    "description": "A loose river of monarch butterflies follows a migration corridor. Each butterfly flies leg by leg along the route and rejoins at the start when it arrives, so the stream never runs dry.",
+    "agents": {
+      "count": 5000,
+      "model": "butterfly",
+      "size": 1.3
+    },
+    "render": {
+      "mode": "models",
+      "sky": [
+        "#eef2ea",
+        "#7fb2cf"
+      ],
+      "fogColor": "#dfe8e6",
+      "fog": 0.0028,
+      "palette": [
+        "#f07a26",
+        "#c9561a"
+      ],
+      "accent": "#2f6f4f",
+      "blend": "alpha",
+      "ground": {
+        "y": -22,
+        "size": 220,
+        "step": 20
+      },
+      "gridColor": "#5a7a62"
+    },
+    "bounds": {
+      "shape": "box",
+      "center": [
+        0,
+        12,
+        0
+      ],
+      "radius": 180,
+      "halfSize": [
+        185,
+        40,
+        90
+      ],
+      "floor": -18,
+      "force": 1
+    },
+    "boids": {
+      "neighborRadius": 4,
+      "separationRadius": 1.8,
+      "separation": 1.4,
+      "alignment": 0.4,
+      "cohesion": 0.2,
+      "maxSpeed": 9,
+      "minSpeed": 4,
+      "maxForce": 14,
+      "noise": 0.9,
+      "maxNeighbors": 12
+    },
+    "behaviors": [
+      {
+        "type": "waypoints",
+        "points": [
+          [
+            -160,
+            8,
+            -40
+          ],
+          [
+            -90,
+            26,
+            25
+          ],
+          [
+            -20,
+            14,
+            -30
+          ],
+          [
+            50,
+            30,
+            15
+          ],
+          [
+            150,
+            10,
+            -25
+          ]
+        ],
+        "strength": 1,
+        "reach": 12,
+        "spread": 14,
+        "spreadGrowth": 0.15,
+        "loop": false
+      }
+    ],
+    "simulation": {
+      "speed": 1
+    },
+    "camera": {
+      "distance": 250,
+      "yaw": 0.25,
+      "pitch": 0.28,
+      "target": [
+        0,
+        10,
+        0
+      ],
+      "autoRotate": 0.03
+    }
+  },
+  {
+    "version": 1,
+    "id": "bat-exodus",
+    "name": "Bat Exodus",
+    "kind": "Bats",
+    "description": "Free-tailed bats pour out of a cave at sunset, corkscrew upward in a rising column, then stream off toward their feeding grounds. The vortex near the cave mouth keeps the column turning.",
+    "agents": {
+      "count": 10000,
+      "model": "bat",
+      "size": 1
+    },
+    "render": {
+      "mode": "models",
+      "sky": [
+        "#e0905f",
+        "#272c52"
+      ],
+      "fogColor": "#8a6670",
+      "fog": 0.0035,
+      "palette": [
+        "#0e0f15",
+        "#2b2733"
+      ],
+      "accent": "#ffb35c",
+      "blend": "alpha",
+      "ground": {
+        "y": -30,
+        "size": 180,
+        "step": 15
+      },
+      "gridColor": "#3b2f3a"
+    },
+    "bounds": {
+      "shape": "box",
+      "center": [
+        90,
+        20,
+        -40
+      ],
+      "radius": 150,
+      "halfSize": [
+        150,
+        65,
+        90
+      ],
+      "floor": -28,
+      "force": 1
+    },
+    "boids": {
+      "neighborRadius": 4,
+      "separationRadius": 1.6,
+      "separation": 2,
+      "alignment": 1,
+      "cohesion": 0.4,
+      "maxSpeed": 20,
+      "minSpeed": 9,
+      "maxForce": 40,
+      "noise": 0.5,
+      "maxNeighbors": 14
+    },
+    "behaviors": [
+      {
+        "type": "waypoints",
+        "points": [
+          [
+            0,
+            -27,
+            0
+          ],
+          [
+            10,
+            -14,
+            8
+          ],
+          [
+            -6,
+            0,
+            14
+          ],
+          [
+            -12,
+            15,
+            0
+          ],
+          [
+            0,
+            28,
+            -12
+          ],
+          [
+            40,
+            40,
+            -30
+          ],
+          [
+            110,
+            50,
+            -60
+          ],
+          [
+            210,
+            55,
+            -95
+          ]
+        ],
+        "strength": 1,
+        "reach": 9,
+        "spread": 5,
+        "spreadGrowth": 0.45,
+        "loop": false
+      },
+      {
+        "type": "vortex",
+        "center": [
+          0,
+          0,
+          0
+        ],
+        "strength": 0.45,
+        "radius": 26
+      }
+    ],
+    "simulation": {
+      "speed": 1
+    },
+    "camera": {
+      "distance": 210,
+      "yaw": -0.6,
+      "pitch": 0.18,
+      "target": [
+        60,
+        15,
+        -30
+      ],
+      "autoRotate": 0.03
+    }
+  },
+  {
+    "version": 1,
+    "id": "drone-surveillance",
+    "name": "Surveillance Drone Fleet",
+    "kind": "Machines",
+    "description": "Fixed-wing drones hold orbits over four sites, stacked in altitude layers 6 units apart. Separation keeps aircraft apart; alignment and cohesion are near zero because machines follow their tasking. A few drones are re-tasked each minute, so transit traffic crosses between sites.",
+    "agents": {
+      "count": 240,
+      "model": "plane",
+      "size": 2.2
+    },
+    "render": {
+      "mode": "models",
+      "sky": [
+        "#16262e",
+        "#060b0e"
+      ],
+      "fogColor": "#0f1b21",
+      "fog": 0.0026,
+      "palette": [
+        "#e3ecee",
+        "#9db6bd"
+      ],
+      "accent": "#ffd23f",
+      "blend": "alpha",
+      "ground": {
+        "y": 0,
+        "size": 240,
+        "step": 20
+      },
+      "gridColor": "#3f6a72"
+    },
+    "bounds": {
+      "shape": "box",
+      "center": [
+        0,
+        55,
+        0
+      ],
+      "radius": 220,
+      "halfSize": [
+        220,
+        60,
+        220
+      ],
+      "floor": 8,
+      "force": 1
+    },
+    "boids": {
+      "neighborRadius": 8,
+      "separationRadius": 6,
+      "separation": 2.5,
+      "alignment": 0.1,
+      "cohesion": 0,
+      "maxSpeed": 18,
+      "minSpeed": 13,
+      "maxForce": 14,
+      "noise": 0.05,
+      "maxNeighbors": 12
+    },
+    "behaviors": [
+      {
+        "type": "loiter",
+        "sites": [
+          {
+            "position": [
+              -90,
+              0,
+              -60
+            ],
+            "radius": 28
+          },
+          {
+            "position": [
+              75,
+              0,
+              -85
+            ],
+            "radius": 22
+          },
+          {
+            "position": [
+              -45,
+              0,
+              95
+            ],
+            "radius": 34
+          },
+          {
+            "position": [
+              105,
+              0,
+              70
+            ],
+            "radius": 26
+          }
+        ],
+        "altitude": 40,
+        "layers": 4,
+        "layerSpacing": 6,
+        "strength": 1.6,
+        "reassignPerMinute": 1.2
+      }
+    ],
+    "simulation": {
+      "speed": 1
+    },
+    "camera": {
+      "distance": 330,
+      "yaw": 0.55,
+      "pitch": 0.55,
+      "target": [
+        0,
+        30,
+        0
+      ],
+      "autoRotate": 0.03
+    }
+  }
+]

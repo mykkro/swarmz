@@ -1,0 +1,1115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Swarm Atlas</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: full-bleed WebGL stage; instrument plates float over it (right rail on desktop, bottom sheet on phones). Single dark look by choice. */
+:root{
+  color-scheme: dark;
+  --bg:#0b0f12;
+  --plate:rgba(13,18,22,.80);
+  --plate-solid:#10161a;
+  --line:rgba(206,222,230,.14);
+  --text:#e8eef0;
+  --muted:#93a3ab;
+  --accent:#ff9f43;
+  --chip:rgba(255,255,255,.06);
+  --danger:#ff7a6b;
+  --f-display:"Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --f-body:"Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r:12px;
+  --gap-x:max(16px, env(safe-area-inset-left, 0px));
+  --gap-r:max(16px, env(safe-area-inset-right, 0px));
+}
+html,body{height:100%;overflow:hidden;margin:0}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--f-body);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#gl:active{cursor:grabbing}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.plate{background:var(--plate);border:1px solid var(--line);border-radius:var(--r);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2)}
+
+.brand{position:fixed;top:calc(16px + env(safe-area-inset-top,0px));left:var(--gap-x);padding:12px 16px 12px;max-width:min(420px, calc(100% - 140px));pointer-events:none}
+.eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:8px}
+.eyebrow::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent)}
+.brand h1{font-family:var(--f-display);font-weight:700;font-size:clamp(20px,2.4vw,30px);line-height:1.08;margin:6px 0 6px;text-wrap:balance;letter-spacing:-.01em}
+.meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.chip{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--text)}
+
+.hud{position:fixed;top:calc(16px + env(safe-area-inset-top,0px));right:calc(var(--gap-r) + 336px);padding:8px 12px;font-size:11px;color:var(--muted);display:flex;gap:14px;pointer-events:none}
+.hud b{color:var(--text);font-weight:500}
+
+.panel{position:fixed;top:calc(16px + env(safe-area-inset-top,0px));right:var(--gap-r);width:320px;max-height:calc(100% - 32px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));overflow:auto;display:flex;flex-direction:column;gap:16px;padding:14px;overscroll-behavior:contain}
+.panel h2{font-family:var(--f-mono);font-weight:500;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.grab{display:none}
+.scenarios{display:grid;gap:6px}
+.sc-btn{all:unset;box-sizing:border-box;cursor:pointer;display:grid;grid-template-columns:22px 1fr auto;align-items:baseline;gap:8px;padding:8px 10px;border-radius:9px;border:1px solid transparent}
+.sc-btn:hover{background:var(--chip)}
+.sc-btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.sc-btn[aria-current="true"]{background:var(--chip);border-color:var(--line)}
+.sc-btn[aria-current="true"] .sc-key{color:var(--accent)}
+.sc-key{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.sc-name{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc-kind{font-family:var(--f-mono);font-size:11px;color:var(--muted);white-space:nowrap}
+
+.seg{display:grid;grid-template-columns:repeat(3,1fr);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+.seg button{all:unset;box-sizing:border-box;text-align:center;padding:7px 4px;border-radius:7px;cursor:pointer;font-weight:500;font-size:13px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--text);color:#0d1215}
+.seg button:focus-visible{outline:2px solid var(--accent)}
+
+.desc{margin:0;color:var(--text);opacity:.86;max-width:60ch}
+.field{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center}
+.field label{font-size:13px;color:var(--muted)}
+.field output{font-family:var(--f-mono);font-size:12px;font-variant-numeric:tabular-nums}
+.field input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--accent);margin:0}
+.fields{display:grid;gap:12px}
+
+.row{display:flex;flex-wrap:wrap;gap:6px}
+.btn{all:unset;box-sizing:border-box;cursor:pointer;padding:7px 11px;border-radius:8px;border:1px solid var(--line);font-size:13px;font-weight:500;color:var(--text);background:var(--chip);display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:rgba(206,222,230,.32)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.btn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#14100b}
+.hint{font-size:12px;color:var(--muted);margin:0}
+.hint kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border-radius:4px;padding:0 4px}
+.more{display:grid;gap:16px}
+.toast{min-height:18px;font-size:12px;color:var(--accent);margin:0}
+
+.sheet{position:fixed;inset:0;background:rgba(4,7,9,.55);display:flex;align-items:center;justify-content:center;padding:16px var(--gap-r) 16px var(--gap-x);z-index:20}
+.sheet-card{width:min(720px,100%);max-height:100%;display:flex;flex-direction:column;gap:12px;padding:16px;background:var(--plate-solid)}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.sheet-head h3{font-family:var(--f-display);font-size:20px;margin:0}
+.sheet select{background:var(--chip);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;font-size:13px}
+#jsonText{flex:1;min-height:260px;height:52vh;resize:vertical;width:100%;box-sizing:border-box;background:#0a0e11;color:#d6e2e6;border:1px solid var(--line);border-radius:8px;padding:12px;font-family:var(--f-mono);font-size:12px;line-height:1.5;tab-size:2}
+#jsonText:focus-visible{outline:2px solid var(--accent)}
+.err{color:var(--danger)}
+.nogl{position:fixed;inset:0;display:grid;place-items:center;padding:24px;text-align:center;font-size:16px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+@media (max-width:760px){
+  .brand{padding:10px 12px;max-width:calc(100% - 32px - 110px)}
+  .brand h1{font-size:20px;margin:4px 0}
+  .hud{right:var(--gap-r);flex-direction:column;gap:2px;padding:8px 10px;align-items:flex-end}
+  .panel{top:auto;left:0;right:0;bottom:0;width:auto;border-radius:16px 16px 0 0;border-bottom:0;max-height:62%;gap:12px;
+    padding:6px var(--gap-r) calc(12px + env(safe-area-inset-bottom,0px)) var(--gap-x)}
+  .grab{all:unset;display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:6px 0 2px;font-size:13px;font-weight:500;color:var(--muted)}
+  .grab::before{content:"";position:absolute;left:50%;top:6px;width:36px;height:4px;border-radius:2px;background:var(--line);transform:translateX(-50%)}
+  .grab:focus-visible{outline:2px solid var(--accent)}
+  .scenarios{display:flex;overflow-x:auto;gap:6px;padding-bottom:4px;scrollbar-width:none}
+  .scenarios::-webkit-scrollbar{display:none}
+  .sc-btn{grid-template-columns:auto;gap:0;flex:0 0 auto;padding:8px 12px;border-color:var(--line)}
+  .sc-key{display:none}
+  .sc-kind{font-size:10px}
+  .panel.collapsed .more{display:none}
+  .panel h2.sc-title{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<canvas id="gl" aria-label="Animated 3D swarm simulation. Drag to orbit, pinch or scroll to zoom."></canvas>
+
+<header class="brand plate">
+  <div class="eyebrow">Swarm Atlas</div>
+  <h1 id="scName">Loading</h1>
+  <div class="meta"><span class="chip" id="scKind">—</span><span class="mono" id="scCount"></span></div>
+</header>
+
+<div class="hud plate mono" id="hud" aria-hidden="true"><span><b id="fps">–</b> fps</span><span><b id="simMs">–</b> ms sim</span></div>
+
+<aside class="panel plate collapsed" id="panel">
+  <button class="grab" id="grab" aria-expanded="false" aria-controls="more"><span>Settings &amp; JSON</span><span id="grabArrow">▲</span></button>
+  <section>
+    <h2 class="sc-title">Scenarios</h2>
+    <div class="scenarios" id="scList" role="list"></div>
+  </section>
+  <section>
+    <h2>Render agents as</h2>
+    <div class="seg" id="modeSeg">
+      <button type="button" data-mode="points" aria-pressed="false">Points</button>
+      <button type="button" data-mode="discs" aria-pressed="false">Discs</button>
+      <button type="button" data-mode="models" aria-pressed="false">3D models</button>
+    </div>
+  </section>
+  <div class="more" id="more">
+    <p class="desc" id="scDesc"></p>
+    <section class="fields">
+      <div class="field"><label for="cnt">Agents</label><output id="cntOut" for="cnt"></output><input type="range" id="cnt" min="0" max="1000" step="1"></div>
+      <div class="field"><label for="size">Agent size</label><output id="sizeOut" for="size"></output><input type="range" id="size" min="0.2" max="4" step="0.05"></div>
+      <div class="field"><label for="speed">Simulation speed</label><output id="speedOut" for="speed"></output><input type="range" id="speed" min="0" max="3" step="0.05"></div>
+    </section>
+    <section>
+      <h2>View</h2>
+      <div class="row">
+        <button class="btn" id="bPause" aria-pressed="false">Pause</button>
+        <button class="btn" id="bGuides" aria-pressed="true">Guides</button>
+        <button class="btn" id="bRotate" aria-pressed="true">Auto-orbit</button>
+        <button class="btn" id="bReset">Reset view</button>
+      </div>
+    </section>
+    <section>
+      <h2>Scenario JSON</h2>
+      <div class="row">
+        <button class="btn" id="bEdit">Edit JSON</button>
+        <button class="btn" id="bSave">Save .json</button>
+        <button class="btn" id="bOpen">Open .json</button>
+        <input type="file" id="fileIn" accept=".json,application/json" class="sr" tabindex="-1">
+      </div>
+      <p class="toast" id="toast" role="status"></p>
+    </section>
+    <p class="hint">Drag to orbit · pinch or scroll to zoom · two fingers or right-drag to pan · double-tap to reset. Keys: <kbd>1</kbd>–<kbd>9</kbd> scenarios, <kbd>Space</kbd> pause, <kbd>G</kbd> guides.</p>
+  </div>
+</aside>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet-card plate" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="sheet-head">
+      <h3 id="sheetTitle">Scenario JSON</h3>
+      <select id="scope" aria-label="What to show">
+        <option value="one">Current scenario</option>
+        <option value="all">All scenarios</option>
+      </select>
+    </div>
+    <textarea id="jsonText" spellcheck="false" aria-label="Scenario JSON"></textarea>
+    <p class="toast" id="sheetMsg" role="status"></p>
+    <div class="row">
+      <button class="btn primary" id="sApply">Apply</button>
+      <button class="btn" id="sCopy">Copy</button>
+      <button class="btn" id="sSave">Save .json</button>
+      <button class="btn" id="sClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="nogl" id="nogl" hidden>This browser can't run WebGL 2, which the swarm renderer needs. Try a current Chrome, Firefox or Safari.</div>
+
+<script>
+"use strict";
+/* ------------------------------------------------------------------ */
+/* Scenario library                                                    */
+/* ------------------------------------------------------------------ */
+const SCENARIOS = [
+{
+  version:1, id:"sardine-bait-ball", name:"Sardine Bait Ball", kind:"Fish",
+  description:"A school of sardines packs into a spinning ball while three tuna drive through it. Fish flee inside a 12-unit fear radius, which opens the hollow lanes seen in real bait balls.",
+  agents:{count:12000, model:"fish", size:1.0},
+  render:{mode:"models", sky:["#03141d","#1c6c8c"], fogColor:"#0a3346", fog:0.010, palette:["#dfeaf0","#6d93a8"], accent:"#ff9f43", blend:"alpha", ground:null, gridColor:"#ffffff"},
+  bounds:{shape:"sphere", center:[0,0,0], radius:46, halfSize:[46,46,46], floor:null, force:2.0},
+  boids:{neighborRadius:4.5, separationRadius:1.6, separation:1.8, alignment:1.2, cohesion:0.8, maxSpeed:16, minSpeed:7, maxForce:30, noise:0.15, maxNeighbors:20},
+  behaviors:[
+    {type:"vortex", center:[0,0,0], strength:0.55},
+    {type:"attractor", position:[0,0,0], strength:0.25},
+    {type:"predator", count:3, model:"fish", scale:5, speed:25, force:26, fearRadius:12, fearStrength:4.5, retargetSeconds:4}
+  ],
+  simulation:{speed:1},
+  camera:{distance:125, yaw:0.7, pitch:0.15, target:[0,0,0], autoRotate:0.06}
+},
+{
+  version:1, id:"starling-murmuration", name:"Starling Murmuration", kind:"Birds",
+  description:"Starlings over a winter reed bed at dusk. Each bird tracks at most 7 neighbours, the topological count measured in real flocks, so waves of turning ripple across the whole cloud. A peregrine falcon makes passes through it.",
+  agents:{count:16000, model:"bird", size:0.7},
+  render:{mode:"points", sky:["#f2b48c","#56688f"], fogColor:"#c8a397", fog:0.0035, palette:["#14161c","#2d2f39"], accent:"#d94a32", blend:"alpha", ground:null, gridColor:"#ffffff"},
+  bounds:{shape:"box", center:[0,20,0], radius:90, halfSize:[95,38,70], floor:null, force:1.4},
+  boids:{neighborRadius:6, separationRadius:1.8, separation:1.6, alignment:1.7, cohesion:0.9, maxSpeed:22, minSpeed:12, maxForce:26, noise:0.25, maxNeighbors:7},
+  behaviors:[
+    {type:"attractor", position:[0,20,0], strength:0.35, motion:{amp:[55,12,35], freq:[0.045,0.07,0.035]}},
+    {type:"predator", count:1, model:"bird", scale:3, speed:32, force:30, fearRadius:18, fearStrength:5, retargetSeconds:6}
+  ],
+  simulation:{speed:1},
+  camera:{distance:190, yaw:0.3, pitch:0.05, target:[0,20,0], autoRotate:0.04}
+},
+{
+  version:1, id:"midge-swarm", name:"Midge Swarms", kind:"Insects",
+  description:"Male midges hover over landmarks such as reed tips and fence posts, forming tight dancing columns. Alignment is almost off and random jitter is high, so the cloud buzzes in place instead of travelling.",
+  agents:{count:6000, model:"insect", size:0.5},
+  render:{mode:"discs", sky:["#16130b","#38402a"], fogColor:"#1b1a10", fog:0.012, palette:["#ffe9a3","#b8d27a"], accent:"#ffd24a", blend:"additive", ground:{y:-2, size:60, step:4}, gridColor:"#8fa070"},
+  bounds:{shape:"sphere", center:[0,8,0], radius:34, halfSize:[34,34,34], floor:-1, force:1.5},
+  boids:{neighborRadius:3, separationRadius:0.9, separation:1.3, alignment:0.15, cohesion:0.35, maxSpeed:9, minSpeed:2, maxForce:60, noise:1.4, maxNeighbors:16},
+  behaviors:[
+    {type:"markers", points:[[0,9,0],[16,6,-10],[-14,11,8]], strength:1.1, hover:3}
+  ],
+  simulation:{speed:1},
+  camera:{distance:62, yaw:0.9, pitch:0.12, target:[0,7,0], autoRotate:0.05}
+},
+{
+  version:1, id:"monarch-migration", name:"Monarch Migration", kind:"Butterflies",
+  description:"A loose river of monarch butterflies follows a migration corridor. Each butterfly flies leg by leg along the route and rejoins at the start when it arrives, so the stream never runs dry.",
+  agents:{count:5000, model:"butterfly", size:1.3},
+  render:{mode:"models", sky:["#eef2ea","#7fb2cf"], fogColor:"#dfe8e6", fog:0.0028, palette:["#f07a26","#c9561a"], accent:"#2f6f4f", blend:"alpha", ground:{y:-22, size:220, step:20}, gridColor:"#5a7a62"},
+  bounds:{shape:"box", center:[0,12,0], radius:180, halfSize:[185,40,90], floor:-18, force:1.0},
+  boids:{neighborRadius:4, separationRadius:1.8, separation:1.4, alignment:0.4, cohesion:0.2, maxSpeed:9, minSpeed:4, maxForce:14, noise:0.9, maxNeighbors:12},
+  behaviors:[
+    {type:"waypoints", points:[[-160,8,-40],[-90,26,25],[-20,14,-30],[50,30,15],[150,10,-25]], strength:1.0, reach:12, spread:14, spreadGrowth:0.15, loop:false}
+  ],
+  simulation:{speed:1},
+  camera:{distance:250, yaw:0.25, pitch:0.28, target:[0,10,0], autoRotate:0.03}
+},
+{
+  version:1, id:"bat-exodus", name:"Bat Exodus", kind:"Bats",
+  description:"Free-tailed bats pour out of a cave at sunset, corkscrew upward in a rising column, then stream off toward their feeding grounds. The vortex near the cave mouth keeps the column turning.",
+  agents:{count:10000, model:"bat", size:1.0},
+  render:{mode:"models", sky:["#e0905f","#272c52"], fogColor:"#8a6670", fog:0.0035, palette:["#0e0f15","#2b2733"], accent:"#ffb35c", blend:"alpha", ground:{y:-30, size:180, step:15}, gridColor:"#3b2f3a"},
+  bounds:{shape:"box", center:[90,20,-40], radius:150, halfSize:[150,65,90], floor:-28, force:1.0},
+  boids:{neighborRadius:4, separationRadius:1.6, separation:2.0, alignment:1.0, cohesion:0.4, maxSpeed:20, minSpeed:9, maxForce:40, noise:0.5, maxNeighbors:14},
+  behaviors:[
+    {type:"waypoints", points:[[0,-27,0],[10,-14,8],[-6,0,14],[-12,15,0],[0,28,-12],[40,40,-30],[110,50,-60],[210,55,-95]], strength:1.0, reach:9, spread:5, spreadGrowth:0.45, loop:false},
+    {type:"vortex", center:[0,0,0], strength:0.45, radius:26}
+  ],
+  simulation:{speed:1},
+  camera:{distance:210, yaw:-0.6, pitch:0.18, target:[60,15,-30], autoRotate:0.03}
+},
+{
+  version:1, id:"drone-surveillance", name:"Surveillance Drone Fleet", kind:"Machines",
+  description:"Fixed-wing drones hold orbits over four sites, stacked in altitude layers 6 units apart. Separation keeps aircraft apart; alignment and cohesion are near zero because machines follow their tasking. A few drones are re-tasked each minute, so transit traffic crosses between sites.",
+  agents:{count:240, model:"plane", size:2.2},
+  render:{mode:"models", sky:["#16262e","#060b0e"], fogColor:"#0f1b21", fog:0.0026, palette:["#e3ecee","#9db6bd"], accent:"#ffd23f", blend:"alpha", ground:{y:0, size:240, step:20}, gridColor:"#3f6a72"},
+  bounds:{shape:"box", center:[0,55,0], radius:220, halfSize:[220,60,220], floor:8, force:1.0},
+  boids:{neighborRadius:8, separationRadius:6, separation:2.5, alignment:0.1, cohesion:0, maxSpeed:18, minSpeed:13, maxForce:14, noise:0.05, maxNeighbors:12},
+  behaviors:[
+    {type:"loiter", sites:[{position:[-90,0,-60], radius:28},{position:[75,0,-85], radius:22},{position:[-45,0,95], radius:34},{position:[105,0,70], radius:26}],
+     altitude:40, layers:4, layerSpacing:6, strength:1.6, reassignPerMinute:1.2}
+  ],
+  simulation:{speed:1},
+  camera:{distance:330, yaw:0.55, pitch:0.55, target:[0,30,0], autoRotate:0.03}
+}
+];
+
+const DEFAULT_SCENARIO = {
+  version:1, id:"custom", name:"Custom Scenario", kind:"Custom", description:"",
+  agents:{count:3000, model:"bird", size:1},
+  render:{mode:"models", sky:["#1b2630","#0b1015"], fogColor:null, fog:0.004, palette:["#e6edf0","#9fb1ba"], accent:"#ff9f43", blend:"alpha", ground:null, gridColor:"#ffffff"},
+  bounds:{shape:"sphere", center:[0,0,0], radius:60, halfSize:[60,40,60], floor:null, force:1.5},
+  boids:{neighborRadius:5, separationRadius:2, separation:1.5, alignment:1, cohesion:0.8, maxSpeed:16, minSpeed:6, maxForce:24, noise:0.2, maxNeighbors:20},
+  behaviors:[], simulation:{speed:1},
+  camera:{distance:150, yaw:0.6, pitch:0.2, target:[0,0,0], autoRotate:0.05}
+};
+const MODEL_NAMES = ["fish","bird","bat","insect","butterfly","plane"];
+const MODES = ["points","discs","models"];
+const MAX_AGENTS = 60000;
+
+/* ------------------------------------------------------------------ */
+/* JSON normalization                                                  */
+/* ------------------------------------------------------------------ */
+const isObj = v => v && typeof v === "object" && !Array.isArray(v);
+function merge(def, src){
+  const out = {};
+  for (const k in def){
+    if (src && Object.prototype.hasOwnProperty.call(src,k)){
+      out[k] = (isObj(def[k]) && isObj(src[k])) ? merge(def[k], src[k]) : clone(src[k]);
+    } else out[k] = clone(def[k]);
+  }
+  return out;
+}
+const clone = v => v === undefined ? v : JSON.parse(JSON.stringify(v));
+const num = (v, d, lo=-1e9, hi=1e9) => (typeof v === "number" && isFinite(v)) ? Math.min(hi, Math.max(lo, v)) : d;
+const vec3 = (v, d) => Array.isArray(v) && v.length === 3 && v.every(x => typeof x === "number" && isFinite(x)) ? v.slice() : d.slice();
+const hex = (v, d) => typeof v === "string" && /^#([0-9a-f]{6})$/i.test(v) ? v : d;
+const slug = s => String(s||"custom").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"") || "custom";
+
+function normalize(src){
+  if (!isObj(src)) throw new Error("Each scenario must be a JSON object.");
+  const s = merge(DEFAULT_SCENARIO, src);
+  s.name = String(s.name).slice(0,60); s.kind = String(s.kind).slice(0,24); s.description = String(s.description).slice(0,600);
+  s.id = slug(src.id || s.name);
+  s.agents.count = Math.round(num(s.agents.count, 3000, 1, MAX_AGENTS));
+  s.agents.model = MODEL_NAMES.includes(s.agents.model) ? s.agents.model : "bird";
+  s.agents.size = num(s.agents.size, 1, 0.05, 20);
+  const r = s.render;
+  r.mode = MODES.includes(r.mode) ? r.mode : "models";
+  r.sky = Array.isArray(r.sky) && r.sky.length === 2 ? [hex(r.sky[0],"#1b2630"), hex(r.sky[1],"#0b1015")] : ["#1b2630","#0b1015"];
+  r.fogColor = r.fogColor == null ? null : hex(r.fogColor, null);
+  r.fog = num(r.fog, 0.004, 0, 0.2);
+  r.palette = Array.isArray(r.palette) && r.palette.length >= 2 ? [hex(r.palette[0],"#e6edf0"), hex(r.palette[1],"#9fb1ba")] : ["#e6edf0","#9fb1ba"];
+  r.accent = hex(r.accent, "#ff9f43");
+  r.blend = r.blend === "additive" ? "additive" : "alpha";
+  r.gridColor = hex(r.gridColor, "#ffffff");
+  r.ground = isObj(r.ground) ? {y:num(r.ground.y,0), size:num(r.ground.size,100,1,5000), step:num(r.ground.step,10,0.5,1000)} : null;
+  const b = s.bounds;
+  b.shape = b.shape === "box" ? "box" : "sphere";
+  b.center = vec3(b.center,[0,0,0]); b.radius = num(b.radius,60,1,5000);
+  b.halfSize = vec3(b.halfSize,[60,40,60]).map(v=>Math.max(1,Math.abs(v)));
+  b.floor = typeof b.floor === "number" && isFinite(b.floor) ? b.floor : null;
+  b.force = num(b.force,1.5,0,50);
+  const o = s.boids, D = DEFAULT_SCENARIO.boids;
+  for (const k in D) o[k] = num(o[k], D[k], 0, 1e5);
+  o.neighborRadius = Math.max(0.1, o.neighborRadius);
+  o.maxSpeed = Math.max(0.01, o.maxSpeed); o.minSpeed = Math.min(o.minSpeed, o.maxSpeed);
+  o.maxNeighbors = Math.max(1, Math.round(o.maxNeighbors));
+  s.behaviors = (Array.isArray(src.behaviors) ? src.behaviors : []).map(normBehavior).filter(Boolean);
+  s.simulation.speed = num(s.simulation.speed,1,0,5);
+  const c = s.camera;
+  c.distance = num(c.distance,150,2,5000); c.yaw = num(c.yaw,0.6); c.pitch = num(c.pitch,0.2,-1.5,1.5);
+  c.target = vec3(c.target,[0,0,0]); c.autoRotate = num(c.autoRotate,0.05,-2,2);
+  s.version = 1;
+  return s;
+}
+function normBehavior(b){
+  if (!isObj(b)) return null;
+  switch (b.type){
+    case "vortex": return {type:"vortex", center:vec3(b.center,[0,0,0]), strength:num(b.strength,0.5,-20,20), ...(b.radius!=null?{radius:num(b.radius,30,0.1,1e4)}:{})};
+    case "attractor": {
+      const a = {type:"attractor", position:vec3(b.position,[0,0,0]), strength:num(b.strength,0.5,-20,20)};
+      if (isObj(b.motion)) a.motion = {amp:vec3(b.motion.amp,[0,0,0]), freq:vec3(b.motion.freq,[0,0,0])};
+      return a;
+    }
+    case "markers": {
+      const pts = (Array.isArray(b.points)?b.points:[]).filter(p=>Array.isArray(p)&&p.length===3).map(p=>vec3(p,[0,0,0]));
+      return pts.length ? {type:"markers", points:pts, strength:num(b.strength,1,0,20), hover:num(b.hover,3,0.1,1000)} : null;
+    }
+    case "waypoints": {
+      const pts = (Array.isArray(b.points)?b.points:[]).filter(p=>Array.isArray(p)&&p.length===3).map(p=>vec3(p,[0,0,0]));
+      return pts.length >= 2 ? {type:"waypoints", points:pts, strength:num(b.strength,1,0,20), reach:num(b.reach,10,0.5,1e4), spread:num(b.spread,8,0,1e4), spreadGrowth:num(b.spreadGrowth,0,0,10), loop:!!b.loop} : null;
+    }
+    case "loiter": {
+      const sites = (Array.isArray(b.sites)?b.sites:[]).filter(isObj).map(t=>({position:vec3(t.position,[0,0,0]), radius:num(t.radius,25,1,1e4)}));
+      return sites.length ? {type:"loiter", sites, altitude:num(b.altitude,40), layers:Math.round(num(b.layers,1,1,32)), layerSpacing:num(b.layerSpacing,5,0,1e3), strength:num(b.strength,1.5,0,20), reassignPerMinute:num(b.reassignPerMinute,0,0,60)} : null;
+    }
+    case "predator": return {type:"predator", count:Math.round(num(b.count,1,0,64)), model:MODEL_NAMES.includes(b.model)?b.model:null, scale:num(b.scale,3,0.1,50), speed:num(b.speed,25,0.1,1e4), force:num(b.force,25,0.1,1e5), fearRadius:num(b.fearRadius,12,0.1,1e4), fearStrength:num(b.fearStrength,4,0,100), retargetSeconds:num(b.retargetSeconds,4,0.2,600)};
+    default: return null;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Simulation: boids on a counting-sort uniform grid                   */
+/* Instance layout (8 floats): px py pz vx vy vz bank phase            */
+/* ------------------------------------------------------------------ */
+const F = new Float64Array(3);
+const NB = (()=>{ const o=[]; for(let z=-1;z<=1;z++)for(let y=-1;y<=1;y++)for(let x=-1;x<=1;x++)o.push([x,y,z]);
+  o.sort((a,b)=>(Math.abs(a[0])+Math.abs(a[1])+Math.abs(a[2]))-(Math.abs(b[0])+Math.abs(b[1])+Math.abs(b[2])));
+  return new Int32Array(o.flat()); })();
+function steer(dx,dy,dz,vx,vy,vz,ms,mf,w){
+  const l = Math.sqrt(dx*dx+dy*dy+dz*dz); if (l < 1e-6) return;
+  const k = ms/l; let sx = dx*k-vx, sy = dy*k-vy, sz = dz*k-vz;
+  const sl = Math.sqrt(sx*sx+sy*sy+sz*sz);
+  if (sl > mf){ const q = mf/sl; sx*=q; sy*=q; sz*=q; }
+  F[0]+=sx*w; F[1]+=sy*w; F[2]+=sz*w;
+}
+function randInSphere(){ let x,y,z; do{ x=Math.random()*2-1; y=Math.random()*2-1; z=Math.random()*2-1; }while(x*x+y*y+z*z>1); return [x,y,z]; }
+
+class Swarm {
+  constructor(){ this.n=0; this.a=new Float32Array(0); this.time=0; }
+  load(sc){
+    this.sc = sc; this.time = 0;
+    const B = {vortex:null, attractors:[], markers:null, waypoints:null, loiter:null, predator:null};
+    for (const b of sc.behaviors){
+      if (b.type==="attractor") B.attractors.push({...b, cur:b.position.slice()});
+      else if (!B[b.type]) B[b.type] = b;
+    }
+    this.B = B;
+    this.setupGrid();
+    this.n = 0; this.a = new Float32Array(0);
+    this.setCount(sc.agents.count);
+    this.setupPredators();
+  }
+  setupGrid(){
+    const b = this.sc.bounds, nr = this.sc.boids.neighborRadius;
+    let mn, mx;
+    if (b.shape==="sphere"){ const R=b.radius*1.25; mn=b.center.map(c=>c-R); mx=b.center.map(c=>c+R); }
+    else { mn=b.center.map((c,i)=>c-b.halfSize[i]*1.15); mx=b.center.map((c,i)=>c+b.halfSize[i]*1.15); }
+    const ext = Math.max(mx[0]-mn[0], mx[1]-mn[1], mx[2]-mn[2]);
+    const cs = Math.max(nr, ext/64);
+    const nx = Math.max(1,Math.ceil((mx[0]-mn[0])/cs)), ny = Math.max(1,Math.ceil((mx[1]-mn[1])/cs)), nz = Math.max(1,Math.ceil((mx[2]-mn[2])/cs));
+    this.g = {minx:mn[0], miny:mn[1], minz:mn[2], inv:1/cs, nx, ny, nz, cells:nx*ny*nz};
+    this.cellStart = new Int32Array(this.g.cells+1);
+    this.cursor = new Int32Array(this.g.cells);
+  }
+  setCount(n){
+    n = Math.max(1, Math.min(MAX_AGENTS, n|0));
+    const old = this.a, oldN = this.n;
+    const a = new Float32Array(n*8);
+    a.set(old.subarray(0, Math.min(oldN,n)*8));
+    const grow = (A,k,T)=>{ const x=new T(n*k); if(A) x.set(A.subarray(0,Math.min(oldN,n)*k)); return x; };
+    this.wp = grow(this.wp,1,Int32Array); this.grp = grow(this.grp,1,Int32Array); this.off = grow(this.off,3,Float32Array);
+    this.a = a; this.nv = new Float32Array(n*3);
+    this.cellOf = new Int32Array(n); this.sorted = new Int32Array(n);
+    for (let i=oldN;i<n;i++) this.spawn(i);
+    this.n = n;
+  }
+  spawn(i){
+    const a=this.a, o=i*8, sc=this.sc, B=this.B, bo=sc.boids, b=sc.bounds;
+    const off = randInSphere(); this.off.set(off, i*3);
+    const sp = (bo.minSpeed+bo.maxSpeed)/2;
+    let p, v;
+    if (B.waypoints){
+      const W=B.waypoints, L=W.points.length, k=1+Math.floor(Math.random()*(L-1)), t=Math.random();
+      const A=W.points[k-1], C=W.points[k], s=W.spread*(1+k*W.spreadGrowth);
+      p=[A[0]+(C[0]-A[0])*t+off[0]*s, A[1]+(C[1]-A[1])*t+off[1]*s, A[2]+(C[2]-A[2])*t+off[2]*s];
+      const d=[C[0]-A[0],C[1]-A[1],C[2]-A[2]], l=Math.hypot(...d)||1; v=d.map(x=>x/l*sp);
+      this.wp[i]=k;
+    } else if (B.loiter){
+      const Lo=B.loiter, g=i%Lo.sites.length, st=Lo.sites[g], ang=Math.random()*Math.PI*2, dir=g%2?-1:1;
+      const alt = st.position[1]+Lo.altitude+(i%Lo.layers)*Lo.layerSpacing;
+      p=[st.position[0]+Math.cos(ang)*st.radius, alt, st.position[2]+Math.sin(ang)*st.radius];
+      v=[-Math.sin(ang)*sp*dir, 0, Math.cos(ang)*sp*dir];
+      this.grp[i]=g;
+    } else if (B.markers){
+      const M=B.markers, g=i%M.points.length, c=M.points[g];
+      p=[c[0]+off[0]*M.hover*2, c[1]+off[1]*M.hover*2, c[2]+off[2]*M.hover*2];
+      const r=randInSphere(); v=r.map(x=>x*sp); this.grp[i]=g;
+    } else {
+      const r=randInSphere();
+      p = b.shape==="sphere" ? b.center.map((c,k)=>c+r[k]*b.radius*0.6) : b.center.map((c,k)=>c+r[k]*b.halfSize[k]*0.6);
+      const d=randInSphere(), l=Math.hypot(...d)||1; v=d.map(x=>x/l*sp);
+    }
+    if (b.floor!=null && p[1]<b.floor+1) p[1]=b.floor+1;
+    a[o]=p[0]; a[o+1]=p[1]; a[o+2]=p[2]; a[o+3]=v[0]; a[o+4]=v[1]; a[o+5]=v[2]; a[o+6]=0; a[o+7]=Math.random();
+  }
+  setupPredators(){
+    const P = this.B.predator, k = P ? P.count : 0;
+    this.pk = k; this.pa = new Float32Array(Math.max(1,k)*8); this.pt = new Int32Array(Math.max(1,k)); this.ptimer = new Float32Array(Math.max(1,k));
+    const b=this.sc.bounds;
+    for (let i=0;i<k;i++){
+      const r=randInSphere(), o=i*8;
+      const ext = b.shape==="sphere" ? [b.radius,b.radius,b.radius] : b.halfSize;
+      this.pa[o]=b.center[0]+r[0]*ext[0]; this.pa[o+1]=b.center[1]+r[1]*ext[1]*0.5; this.pa[o+2]=b.center[2]+r[2]*ext[2];
+      this.pa[o+5]=P.speed*0.6; this.pa[o+7]=Math.random();
+      this.pt[i]=(Math.random()*this.n)|0; this.ptimer[i]=Math.random()*P.retargetSeconds;
+    }
+  }
+  buildGrid(){
+    const n=this.n, a=this.a, g=this.g, cs=this.cellStart, cell=this.cellOf, sorted=this.sorted, cur=this.cursor;
+    const nx=g.nx, ny=g.ny, nz=g.nz, inv=g.inv, mx=g.minx, my=g.miny, mz=g.minz;
+    cs.fill(0);
+    for (let i=0;i<n;i++){
+      const o=i*8;
+      let cx=((a[o]-mx)*inv)|0, cy=((a[o+1]-my)*inv)|0, cz=((a[o+2]-mz)*inv)|0;
+      if(cx<0)cx=0;else if(cx>=nx)cx=nx-1; if(cy<0)cy=0;else if(cy>=ny)cy=ny-1; if(cz<0)cz=0;else if(cz>=nz)cz=nz-1;
+      const c=(cz*ny+cy)*nx+cx; cell[i]=c; cs[c+1]++;
+    }
+    for (let c=0;c<g.cells;c++) cs[c+1]+=cs[c];
+    cur.set(cs.subarray(0,g.cells));
+    for (let i=0;i<n;i++) sorted[cur[cell[i]]++]=i;
+  }
+  boundsForce(x,y,z,mf,out){
+    const b=this.sc.bounds, f=b.force*mf;
+    if (b.shape==="sphere"){
+      const rx=x-b.center[0], ry=y-b.center[1], rz=z-b.center[2], d=Math.sqrt(rx*rx+ry*ry+rz*rz), R=b.radius, in0=R*0.8;
+      if (d>in0){ const k=(d-in0)/(R*0.2)*f/d; out[0]-=rx*k; out[1]-=ry*k; out[2]-=rz*k; }
+    } else {
+      const c=b.center, h=b.halfSize;
+      for (let ax=0; ax<3; ax++){
+        const v=(ax===0?x:ax===1?y:z)-c[ax], lim=h[ax]*0.85, m=h[ax]*0.15;
+        if (v>lim) out[ax]-=(v-lim)/m*f; else if (v<-lim) out[ax]+=(-lim-v)/m*f;
+      }
+    }
+    if (b.floor!=null && y<b.floor+4) out[1]+=(b.floor+4-y)/4*mf*2;
+  }
+  step(dt){
+    this.time += dt;
+    const t=this.time, n=this.n, a=this.a, nv=this.nv, sc=this.sc, bo=sc.boids, B=this.B;
+    this.buildGrid();
+    const g=this.g, cs=this.cellStart, sorted=this.sorted, nx=g.nx, ny=g.ny, nz=g.nz, inv=g.inv, gmx=g.minx, gmy=g.miny, gmz=g.minz;
+    const r2=bo.neighborRadius**2, s2=bo.separationRadius**2, ms=bo.maxSpeed, mn=bo.minSpeed, mf=bo.maxForce, maxN=bo.maxNeighbors;
+    const maxChecks=Math.max(40, maxN*6);
+    const wS=bo.separation, wA=bo.alignment, wC=bo.cohesion, noise=bo.noise*mf;
+    for (const at of B.attractors){
+      const m=at.motion; at.cur[0]=at.position[0]; at.cur[1]=at.position[1]; at.cur[2]=at.position[2];
+      if (m) for (let k=0;k<3;k++) at.cur[k]+=m.amp[k]*Math.sin(t*m.freq[k]*Math.PI*2+k*1.7);
+    }
+    const V=B.vortex, M=B.markers, W=B.waypoints, Lo=B.loiter, P=B.predator, pk=this.pk, pa=this.pa;
+    const fr2 = P ? P.fearRadius**2 : 0;
+    const reassignP = Lo ? Lo.reassignPerMinute*dt/60 : 0;
+    const floor = sc.bounds.floor;
+    for (let i=0;i<n;i++){
+      const o=i*8, x=a[o], y=a[o+1], z=a[o+2], vx=a[o+3], vy=a[o+4], vz=a[o+5];
+      let cx=((x-gmx)*inv)|0, cy=((y-gmy)*inv)|0, cz=((z-gmz)*inv)|0;
+      if(cx<0)cx=0;else if(cx>=nx)cx=nx-1; if(cy<0)cy=0;else if(cy>=ny)cy=ny-1; if(cz<0)cz=0;else if(cz>=nz)cz=nz-1;
+      let cnt=0, avx=0,avy=0,avz=0, apx=0,apy=0,apz=0, sx=0,sy=0,sz=0, checks=0;
+      // own cell first, then faces, edges, corners; stop after a fixed budget of candidate checks
+      outer:
+      for (let m=0; m<81; m+=3){
+        const xx=cx+NB[m], yy=cy+NB[m+1], zz=cz+NB[m+2];
+        if (xx<0||yy<0||zz<0||xx>=nx||yy>=ny||zz>=nz) continue;
+        const c=(zz*ny+yy)*nx+xx;
+        for (let k=cs[c], e=cs[c+1]; k<e; k++){
+          const j=sorted[k]; if (j===i) continue;
+          const q=j*8, dx=a[q]-x, dy=a[q+1]-y, dz=a[q+2]-z, d2=dx*dx+dy*dy+dz*dz;
+          if (d2<r2){
+            cnt++; avx+=a[q+3]; avy+=a[q+4]; avz+=a[q+5]; apx+=dx; apy+=dy; apz+=dz;
+            if (d2<s2){ const iv=1/(d2+0.01); sx-=dx*iv; sy-=dy*iv; sz-=dz*iv; }
+            if (cnt>=maxN) break outer;
+          }
+          if (++checks>=maxChecks) break outer;
+        }
+      }
+      F[0]=0; F[1]=0; F[2]=0;
+      if (cnt>0){
+        if (wA) steer(avx,avy,avz,vx,vy,vz,ms,mf,wA);
+        if (wC) steer(apx,apy,apz,vx,vy,vz,ms,mf,wC);
+        if (wS && (sx||sy||sz)) steer(sx,sy,sz,vx,vy,vz,ms,mf,wS);
+      }
+      if (V){
+        const rx=x-V.center[0], rz=z-V.center[2], rl=Math.sqrt(rx*rx+rz*rz)+0.001;
+        let s=V.strength*mf*Math.min(1,rl/3);
+        if (V.radius) s*=Math.exp(-(rl*rl)/(V.radius*V.radius));
+        F[0]+=-rz/rl*s; F[2]+=rx/rl*s;
+      }
+      for (const at of B.attractors) steer(at.cur[0]-x,at.cur[1]-y,at.cur[2]-z,vx,vy,vz,ms,mf,at.strength);
+      if (M){
+        const c=M.points[this.grp[i]], dx=c[0]-x, dy=c[1]-y, dz=c[2]-z, d=Math.sqrt(dx*dx+dy*dy+dz*dz);
+        steer(dx,dy,dz,vx,vy,vz,ms,mf,M.strength*Math.min(1,d/M.hover));
+      }
+      if (W){
+        const k=this.wp[i], c=W.points[k], s=W.spread*(1+k*W.spreadGrowth), of=i*3;
+        steer(c[0]+this.off[of]*s-x, c[1]+this.off[of+1]*s-y, c[2]+this.off[of+2]*s-z, vx,vy,vz,ms,mf,W.strength);
+      }
+      if (Lo){
+        if (reassignP && Math.random()<reassignP) this.grp[i]=(this.grp[i]+1+((Math.random()*(Lo.sites.length-1))|0))%Lo.sites.length;
+        const gi=this.grp[i], st=Lo.sites[gi], c=st.position, R=st.radius, dir=gi%2?-1:1;
+        const alt=c[1]+Lo.altitude+(i%Lo.layers)*Lo.layerSpacing;
+        const rx=x-c[0], rz=z-c[2], d=Math.sqrt(rx*rx+rz*rz)+0.001, e=(R-d)/R;
+        let hx=-rz/d*dir+rx/d*e*1.6, hz=rx/d*dir+rz/d*e*1.6; const hl=Math.sqrt(hx*hx+hz*hz)+1e-6;
+        let dy=(alt-y)*0.06; if(dy>0.45)dy=0.45; else if(dy<-0.45)dy=-0.45;
+        steer(hx/hl, dy, hz/hl, vx,vy,vz,ms,mf,Lo.strength);
+      }
+      let cap=ms;
+      if (pk){
+        for (let p=0;p<pk;p++){
+          const q=p*8, dx=x-pa[q], dy=y-pa[q+1], dz=z-pa[q+2], d2=dx*dx+dy*dy+dz*dz;
+          if (d2<fr2){ const d=Math.sqrt(d2)+0.01, s=(1-d/P.fearRadius)*P.fearStrength*mf/d; F[0]+=dx*s; F[1]+=dy*s; F[2]+=dz*s; cap=ms*1.4; }
+        }
+      }
+      this.boundsForce(x,y,z,mf,F);
+      if (noise){ F[0]+=(Math.random()-0.5)*2*noise; F[1]+=(Math.random()-0.5)*2*noise; F[2]+=(Math.random()-0.5)*2*noise; }
+      let nvx=vx+F[0]*dt, nvy=vy+F[1]*dt, nvz=vz+F[2]*dt;
+      const sp=Math.sqrt(nvx*nvx+nvy*nvy+nvz*nvz)+1e-6;
+      if (sp>cap){ const q=cap/sp; nvx*=q; nvy*=q; nvz*=q; } else if (sp<mn){ const q=mn/sp; nvx*=q; nvy*=q; nvz*=q; }
+      nv[i*3]=nvx; nv[i*3+1]=nvy; nv[i*3+2]=nvz;
+      const lat=(vz*F[0]-vx*F[2])/(sp*mf+1e-6);
+      let tb=-lat*1.6; if(tb>1.1)tb=1.1; else if(tb<-1.1)tb=-1.1;
+      a[o+6]+= (tb-a[o+6])*Math.min(1,dt*4);
+    }
+    for (let i=0;i<n;i++){
+      const o=i*8, j=i*3;
+      a[o+3]=nv[j]; a[o+4]=nv[j+1]; a[o+5]=nv[j+2];
+      a[o]+=nv[j]*dt; a[o+1]+=nv[j+1]*dt; a[o+2]+=nv[j+2]*dt;
+      if (floor!=null && a[o+1]<floor){ a[o+1]=floor; if(a[o+4]<0)a[o+4]=0; }
+      if (W){
+        const k=this.wp[i], c=W.points[k], s=W.spread*(1+k*W.spreadGrowth), of=i*3;
+        const dx=c[0]+this.off[of]*s-a[o], dy=c[1]+this.off[of+1]*s-a[o+1], dz=c[2]+this.off[of+2]*s-a[o+2];
+        if (dx*dx+dy*dy+dz*dz < W.reach*W.reach){
+          if (k+1<W.points.length) this.wp[i]=k+1;
+          else if (W.loop) this.wp[i]=0;
+          else {
+            const p0=W.points[0], p1=W.points[1], s0=W.spread;
+            a[o]=p0[0]+this.off[of]*s0; a[o+1]=p0[1]+this.off[of+1]*s0; a[o+2]=p0[2]+this.off[of+2]*s0;
+            const ddx=p1[0]-p0[0], ddy=p1[1]-p0[1], ddz=p1[2]-p0[2], l=Math.hypot(ddx,ddy,ddz)||1, v=bo.minSpeed;
+            a[o+3]=ddx/l*v; a[o+4]=ddy/l*v; a[o+5]=ddz/l*v; this.wp[i]=1;
+          }
+        }
+      }
+    }
+    if (pk) this.stepPredators(dt);
+  }
+  stepPredators(dt){
+    const P=this.B.predator, pa=this.pa, a=this.a, n=this.n;
+    for (let p=0;p<this.pk;p++){
+      const o=p*8;
+      this.ptimer[p]-=dt;
+      let t=this.pt[p]; if (t>=n || this.ptimer[p]<=0){ t=this.pt[p]=(Math.random()*n)|0; this.ptimer[p]=P.retargetSeconds*(0.6+Math.random()*0.8); }
+      const x=pa[o],y=pa[o+1],z=pa[o+2],vx=pa[o+3],vy=pa[o+4],vz=pa[o+5], q=t*8;
+      const lead=0.4, tx=a[q]+a[q+3]*lead-x, ty=a[q+1]+a[q+4]*lead-y, tz=a[q+2]+a[q+5]*lead-z;
+      if (tx*tx+ty*ty+tz*tz<4) this.ptimer[p]=0;
+      F[0]=F[1]=F[2]=0;
+      steer(tx,ty,tz,vx,vy,vz,P.speed,P.force,1);
+      this.boundsForce(x,y,z,P.force,F);
+      let nvx=vx+F[0]*dt, nvy=vy+F[1]*dt, nvz=vz+F[2]*dt;
+      const sp=Math.sqrt(nvx*nvx+nvy*nvy+nvz*nvz)+1e-6, lo=P.speed*0.45;
+      if (sp>P.speed){const k=P.speed/sp;nvx*=k;nvy*=k;nvz*=k;} else if (sp<lo){const k=lo/sp;nvx*=k;nvy*=k;nvz*=k;}
+      const lat=(vz*F[0]-vx*F[2])/(sp*P.force+1e-6); let tb=-lat*1.6; tb=Math.max(-1,Math.min(1,tb));
+      pa[o+6]+=(tb-pa[o+6])*Math.min(1,dt*3);
+      pa[o+3]=nvx; pa[o+4]=nvy; pa[o+5]=nvz; pa[o]+=nvx*dt; pa[o+1]+=nvy*dt; pa[o+2]+=nvz*dt;
+      const fl=this.sc.bounds.floor; if (fl!=null && pa[o+1]<fl){ pa[o+1]=fl; if(pa[o+4]<0)pa[o+4]=0; }
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Low-poly models (forward = +Z, up = +Y). Per-vertex anim weight.    */
+/* ------------------------------------------------------------------ */
+const MODEL_ANIM = {
+  fish:{axis:[1,0,0], freq:13, amp:0.35},
+  bird:{axis:[0,1,0], freq:9, amp:0.55},
+  bat:{axis:[0,1,0], freq:14, amp:0.6},
+  insect:{axis:[0,1,0], freq:55, amp:0.7},
+  butterfly:{axis:[0,1,0], freq:7, amp:1.1},
+  plane:{axis:[0,1,0], freq:0, amp:0}
+};
+function buildModel(name){
+  const P=[];
+  const tri=(a,b,c,w)=>{ for (const p of [a,b,c]) P.push(p[0],p[1],p[2],w(p)); };
+  const quad=(a,b,c,d,w)=>{ tri(a,b,c,w); tri(a,c,d,w); };
+  const mx=p=>[-p[0],p[1],p[2]];
+  const sym=(f,...pts)=>{ f(...pts); f(...pts.slice(0,-1).map(mx), pts[pts.length-1]); };
+  const body=(len,back,rx,ry,w)=>{ const N=[0,0,len],T=[0,0,-back],U=[0,ry,0],D=[0,-ry,0],L=[-rx,0,0],R=[rx,0,0];
+    tri(N,U,R,w);tri(N,R,D,w);tri(N,D,L,w);tri(N,L,U,w);tri(T,R,U,w);tri(T,D,R,w);tri(T,L,D,w);tri(T,U,L,w); };
+  const none=()=>0, span=p=>Math.abs(p[0]), tail=p=>Math.max(0,0.1-p[2]);
+  switch(name){
+    case "fish":
+      body(0.5,0.3,0.06,0.13,tail);
+      tri([0,0,-0.28],[0,0.16,-0.52],[0,-0.16,-0.52],tail);
+      tri([0,0.12,0.08],[0,0.2,-0.06],[0,0.1,-0.12],tail);
+      break;
+    case "bird":
+      body(0.32,0.3,0.06,0.06,none);
+      sym(quad,[-0.04,0,0.14],[-0.42,0,0.04],[-0.42,0,-0.08],[-0.04,0,-0.08],span);
+      sym(tri,[-0.42,0,0.04],[-0.8,0,-0.14],[-0.42,0,-0.08],span);
+      tri([0,0,-0.26],[-0.12,0,-0.46],[0.12,0,-0.46],none);
+      break;
+    case "bat":
+      body(0.22,0.22,0.06,0.06,none);
+      sym(tri,[-0.04,0,0.1],[-0.35,0,0.16],[-0.7,0,0.02],span);
+      sym(tri,[-0.04,0,0.1],[-0.7,0,0.02],[-0.5,0,-0.14],span);
+      sym(tri,[-0.04,0,0.1],[-0.5,0,-0.14],[-0.04,0,-0.14],span);
+      sym(tri,[-0.03,0.04,0.2],[-0.05,0.12,0.14],[-0.01,0.05,0.12],none);
+      break;
+    case "insect":
+      body(0.18,0.3,0.05,0.05,none);
+      sym(quad,[-0.03,0.03,0.06],[-0.32,0.06,-0.02],[-0.28,0.05,-0.16],[-0.03,0.03,-0.06],span);
+      break;
+    case "butterfly":
+      body(0.18,0.22,0.03,0.03,none);
+      sym(quad,[-0.02,0,0.06],[-0.38,0,0.28],[-0.48,0,0.02],[-0.03,0,-0.02],span);
+      sym(tri,[-0.03,0,-0.02],[-0.4,0,-0.06],[-0.26,0,-0.36],span);
+      break;
+    case "plane":
+      body(0.6,0.6,0.06,0.07,none);
+      sym(quad,[-0.03,0,0.12],[-0.9,0,0.02],[-0.9,0,-0.1],[-0.03,0,-0.1],none);
+      sym(tri,[-0.02,0,-0.42],[-0.28,0,-0.6],[-0.02,0,-0.6],none);
+      tri([0,0,-0.38],[0,0.24,-0.62],[0,0,-0.6],none);
+      break;
+  }
+  return new Float32Array(P);
+}
+
+/* ------------------------------------------------------------------ */
+/* Math                                                                */
+/* ------------------------------------------------------------------ */
+const M4 = {
+  persp(fovy,asp,n,f){ const t=1/Math.tan(fovy/2); return new Float32Array([t/asp,0,0,0, 0,t,0,0, 0,0,(f+n)/(n-f),-1, 0,0,2*f*n/(n-f),0]); },
+  lookAt(e,c,u){
+    let zx=e[0]-c[0], zy=e[1]-c[1], zz=e[2]-c[2]; let l=Math.hypot(zx,zy,zz)||1; zx/=l; zy/=l; zz/=l;
+    let xx=u[1]*zz-u[2]*zy, xy=u[2]*zx-u[0]*zz, xz=u[0]*zy-u[1]*zx; l=Math.hypot(xx,xy,xz)||1; xx/=l; xy/=l; xz/=l;
+    const yx=zy*xz-zz*xy, yy=zz*xx-zx*xz, yz=zx*xy-zy*xx;
+    return new Float32Array([xx,yx,zx,0, xy,yy,zy,0, xz,yz,zz,0, -(xx*e[0]+xy*e[1]+xz*e[2]), -(yx*e[0]+yy*e[1]+yz*e[2]), -(zx*e[0]+zy*e[1]+zz*e[2]), 1]);
+  },
+  mul(a,b){ const o=new Float32Array(16); for(let c=0;c<4;c++)for(let r=0;r<4;r++){let s=0;for(let k=0;k<4;k++)s+=a[k*4+r]*b[c*4+k];o[c*4+r]=s;} return o; },
+  inv(m){
+    const a00=m[0],a01=m[1],a02=m[2],a03=m[3],a10=m[4],a11=m[5],a12=m[6],a13=m[7],a20=m[8],a21=m[9],a22=m[10],a23=m[11],a30=m[12],a31=m[13],a32=m[14],a33=m[15];
+    const b00=a00*a11-a01*a10,b01=a00*a12-a02*a10,b02=a00*a13-a03*a10,b03=a01*a12-a02*a11,b04=a01*a13-a03*a11,b05=a02*a13-a03*a12,
+          b06=a20*a31-a21*a30,b07=a20*a32-a22*a30,b08=a20*a33-a23*a30,b09=a21*a32-a22*a31,b10=a21*a33-a23*a31,b11=a22*a33-a23*a32;
+    let d=b00*b11-b01*b10+b02*b09+b03*b08-b04*b07+b05*b06; if(!d) return new Float32Array(16); d=1/d;
+    return new Float32Array([
+      (a11*b11-a12*b10+a13*b09)*d,(a02*b10-a01*b11-a03*b09)*d,(a31*b05-a32*b04+a33*b03)*d,(a22*b04-a21*b05-a23*b03)*d,
+      (a12*b08-a10*b11-a13*b07)*d,(a00*b11-a02*b08+a03*b07)*d,(a32*b02-a30*b05-a33*b01)*d,(a20*b05-a22*b02+a23*b01)*d,
+      (a10*b10-a11*b08+a13*b06)*d,(a01*b08-a00*b10-a03*b06)*d,(a30*b04-a31*b02+a33*b00)*d,(a21*b02-a20*b04-a23*b00)*d,
+      (a11*b07-a10*b09-a12*b06)*d,(a00*b09-a01*b07+a02*b06)*d,(a31*b01-a30*b03-a32*b00)*d,(a20*b03-a21*b01+a22*b00)*d]);
+  }
+};
+const rgb = h => [parseInt(h.slice(1,3),16)/255, parseInt(h.slice(3,5),16)/255, parseInt(h.slice(5,7),16)/255];
+const mix3 = (a,b,t) => a.map((v,i)=>v+(b[i]-v)*t);
+
+/* ------------------------------------------------------------------ */
+/* WebGL2 renderer                                                     */
+/* ------------------------------------------------------------------ */
+const canvas = document.getElementById("gl");
+const gl = canvas.getContext("webgl2", {antialias:true, alpha:false, powerPreference:"high-performance"});
+if (!gl){ document.getElementById("nogl").hidden=false; throw new Error("no webgl2"); }
+
+const INST = `layout(location=4) in vec3 iPos; layout(location=5) in vec3 iVel; layout(location=6) in vec2 iExtra;`;
+const COMMON_U = `uniform mat4 uProj, uView; uniform float uSize, uFog; uniform vec3 uC0, uC1;`;
+const COLOR = `float h=fract(sin(iExtra.y*91.7)*43758.5); vCol=mix(uC0,uC1,h);`;
+const FOGV = `vFog=1.0-exp(-uFog*uFog*d*d);`;
+
+const SRC = {
+  sky:[`#version 300 es
+    out vec2 vN; void main(){ vec2 p=vec2(float((gl_VertexID<<1)&2), float(gl_VertexID&2))*2.0-1.0; vN=p; gl_Position=vec4(p,0.9999,1.0); }`,
+   `#version 300 es
+    precision highp float; in vec2 vN; uniform mat4 uInvVP; uniform vec3 uEye, uSkyB, uSkyT; out vec4 o;
+    void main(){ vec4 w=uInvVP*vec4(vN,1.0,1.0); vec3 d=normalize(w.xyz/w.w-uEye); float t=smoothstep(-0.25,0.8,d.y);
+      vec3 c=mix(uSkyB,uSkyT,t); o=vec4(c,1.0); }`],
+  points:[`#version 300 es
+    ${INST} ${COMMON_U} uniform float uPx; out vec3 vCol; out float vFog;
+    void main(){ vec4 vp=uView*vec4(iPos,1.0); gl_Position=uProj*vp; float d=-vp.z;
+      gl_PointSize=clamp(uSize*uPx/max(d,0.1),1.5,96.0); ${COLOR} ${FOGV} }`,
+   `#version 300 es
+    precision mediump float; in vec3 vCol; in float vFog; uniform vec3 uFogColor; uniform float uAdd; out vec4 o;
+    void main(){ vec2 c=gl_PointCoord-0.5; float r=dot(c,c)*4.0; if(r>1.0) discard;
+      if(uAdd>0.5){ float g=pow(1.0-r,1.6); o=vec4(vCol*g*(1.0-vFog)*0.9,1.0); }
+      else { o=vec4(mix(vCol*(1.05-r*0.35),uFogColor,vFog),1.0); } }`],
+  discs:[`#version 300 es
+    layout(location=0) in vec2 aC; ${INST} ${COMMON_U} out vec3 vCol; out float vFog; out vec2 vUV;
+    void main(){ vec4 vp=uView*vec4(iPos,1.0); vec3 vv=mat3(uView)*iVel; vec2 dir=length(vv.xy)>1e-4?normalize(vv.xy):vec2(1.0,0.0);
+      vec2 pp=vec2(-dir.y,dir.x); vp.xy+=(dir*aC.x+pp*aC.y)*uSize*0.5; gl_Position=uProj*vp; float d=-vp.z;
+      vUV=aC*0.5+0.5; ${COLOR} ${FOGV} }`,
+   `#version 300 es
+    precision mediump float; in vec3 vCol; in float vFog; in vec2 vUV; uniform sampler2D uTex; uniform vec3 uFogColor; uniform float uAdd; out vec4 o;
+    void main(){ vec4 t=texture(uTex,vUV);
+      if(uAdd>0.5){ o=vec4(vCol*t.rgb*t.a*(1.0-vFog)*0.9,1.0); }
+      else { if(t.a<0.5) discard; o=vec4(mix(vCol*t.rgb,uFogColor,vFog),1.0); } }`],
+  mesh:[`#version 300 es
+    layout(location=0) in vec3 aPos; layout(location=1) in float aW; ${INST} ${COMMON_U}
+    uniform vec3 uAxis; uniform float uFreq, uAmp, uTime; out vec3 vCol; out float vFog; out vec3 vW;
+    void main(){ vec3 p=aPos; p+=uAxis*aW*uAmp*sin(uTime*uFreq+iExtra.y*6.2831);
+      float cb=cos(iExtra.x), sb=sin(iExtra.x); p.xy=vec2(p.x*cb-p.y*sb, p.x*sb+p.y*cb);
+      vec3 f=normalize(iVel+vec3(0.0,0.0,1e-5)); vec3 u0=abs(f.y)>0.98?vec3(1.0,0.0,0.0):vec3(0.0,1.0,0.0);
+      vec3 r=normalize(cross(u0,f)); vec3 u=cross(f,r);
+      vec3 w=iPos+(r*p.x+u*p.y+f*p.z)*uSize; vW=w; vec4 vp=uView*vec4(w,1.0); gl_Position=uProj*vp; float d=-vp.z;
+      ${COLOR} ${FOGV} }`,
+   `#version 300 es
+    precision mediump float; in vec3 vCol; in float vFog; in vec3 vW; uniform vec3 uFogColor; out vec4 o;
+    void main(){ vec3 n=normalize(cross(dFdx(vW),dFdy(vW))); float l=abs(dot(n,normalize(vec3(0.35,0.85,0.4))))*0.7+0.38;
+      o=vec4(mix(vCol*l,uFogColor,vFog),1.0); }`],
+  line:[`#version 300 es
+    layout(location=0) in vec3 aPos; uniform mat4 uProj, uView; uniform float uFog; out float vFog;
+    void main(){ vec4 vp=uView*vec4(aPos,1.0); gl_Position=uProj*vp; float d=-vp.z; ${FOGV} }`,
+   `#version 300 es
+    precision mediump float; in float vFog; uniform vec4 uColor; out vec4 o;
+    void main(){ o=vec4(uColor.rgb, uColor.a*(1.0-vFog)); }`]
+};
+
+function compile(vs, fs){
+  const mk=(t,s)=>{ const sh=gl.createShader(t); gl.shaderSource(sh,s); gl.compileShader(sh); if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh)); return sh; };
+  const p=gl.createProgram(); gl.attachShader(p,mk(gl.VERTEX_SHADER,vs)); gl.attachShader(p,mk(gl.FRAGMENT_SHADER,fs)); gl.linkProgram(p);
+  if(!gl.getProgramParameter(p,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const u={}; const nU=gl.getProgramParameter(p,gl.ACTIVE_UNIFORMS);
+  for(let i=0;i<nU;i++){ const info=gl.getActiveUniform(p,i); u[info.name]=gl.getUniformLocation(p,info.name); }
+  return {p,u};
+}
+const PR = {}; for (const k in SRC) PR[k]=compile(SRC[k][0],SRC[k][1]);
+
+const instBuf = gl.createBuffer(), predBuf = gl.createBuffer();
+const quadBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,quadBuf); gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+const meshBuf = gl.createBuffer(), predMeshBuf = gl.createBuffer();
+const gridBuf = gl.createBuffer(), guideBuf = gl.createBuffer();
+const emptyVAO = gl.createVertexArray();
+
+function instAttribs(buf, div){
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.enableVertexAttribArray(4); gl.vertexAttribPointer(4,3,gl.FLOAT,false,32,0); gl.vertexAttribDivisor(4,div);
+  gl.enableVertexAttribArray(5); gl.vertexAttribPointer(5,3,gl.FLOAT,false,32,12); gl.vertexAttribDivisor(5,div);
+  gl.enableVertexAttribArray(6); gl.vertexAttribPointer(6,2,gl.FLOAT,false,32,24); gl.vertexAttribDivisor(6,div);
+}
+function makeVAO(kind, ib, mb){
+  const v=gl.createVertexArray(); gl.bindVertexArray(v);
+  if (kind==="points") instAttribs(ib,0);
+  else if (kind==="discs"){ gl.bindBuffer(gl.ARRAY_BUFFER,quadBuf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0,2,gl.FLOAT,false,8,0); instAttribs(ib,1); }
+  else if (kind==="mesh"){ gl.bindBuffer(gl.ARRAY_BUFFER,mb); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0,3,gl.FLOAT,false,16,0);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1,1,gl.FLOAT,false,16,12); instAttribs(ib,1); }
+  else if (kind==="line"){ gl.bindBuffer(gl.ARRAY_BUFFER,ib); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0,3,gl.FLOAT,false,12,0); }
+  gl.bindVertexArray(null); return v;
+}
+const VAO = {
+  points:makeVAO("points",instBuf), discs:makeVAO("discs",instBuf), mesh:makeVAO("mesh",instBuf,meshBuf),
+  pPoints:makeVAO("points",predBuf), pDiscs:makeVAO("discs",predBuf), pMesh:makeVAO("mesh",predBuf,predMeshBuf),
+  grid:makeVAO("line",gridBuf), guide:makeVAO("line",guideBuf)
+};
+
+/* procedural disc texture: shaded sphere-ish disc, brighter at the heading edge */
+const discTex = (()=>{
+  const c=document.createElement("canvas"); c.width=c.height=64; const x=c.getContext("2d");
+  const lg=x.createLinearGradient(0,0,64,0); lg.addColorStop(0,"#7d8285"); lg.addColorStop(0.65,"#e9edef"); lg.addColorStop(1,"#ffffff");
+  x.fillStyle=lg; x.beginPath(); x.arc(32,32,30,0,Math.PI*2); x.fill();
+  x.fillStyle="rgba(255,255,255,.9)"; x.beginPath(); x.arc(44,26,6,0,Math.PI*2); x.fill();
+  x.globalCompositeOperation="destination-in";
+  const rg=x.createRadialGradient(32,32,0,32,32,32); rg.addColorStop(0,"rgba(0,0,0,1)"); rg.addColorStop(0.72,"rgba(0,0,0,1)"); rg.addColorStop(1,"rgba(0,0,0,0)");
+  x.fillStyle=rg; x.fillRect(0,0,64,64);
+  const t=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,t);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,c); gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);
+  return t;
+})();
+
+/* ------------------------------------------------------------------ */
+/* Camera + orbit controls                                             */
+/* ------------------------------------------------------------------ */
+const FOV = 50*Math.PI/180;
+const cam = {yaw:0, pitch:0.2, dist:150, target:[0,0,0], vyaw:0, vpitch:0, idleUntil:0};
+function camEye(){ const cp=Math.cos(cam.pitch); return [cam.target[0]+cam.dist*cp*Math.sin(cam.yaw), cam.target[1]+cam.dist*Math.sin(cam.pitch), cam.target[2]+cam.dist*cp*Math.cos(cam.yaw)]; }
+function resetCam(){ const c=state.sc.camera; cam.yaw=c.yaw; cam.pitch=c.pitch; cam.dist=c.distance; cam.target=c.target.slice(); cam.vyaw=cam.vpitch=0; }
+function pan(dx,dy){
+  const e=camEye(), f=[cam.target[0]-e[0],cam.target[1]-e[1],cam.target[2]-e[2]], fl=Math.hypot(...f); f[0]/=fl; f[1]/=fl; f[2]/=fl;
+  let r=[f[1]*0-f[2]*1, f[2]*0-f[0]*0, f[0]*1-f[1]*0]; const rl=Math.hypot(...r)||1; r=r.map(v=>v/rl);
+  const u=[r[1]*f[2]-r[2]*f[1], r[2]*f[0]-r[0]*f[2], r[0]*f[1]-r[1]*f[0]];
+  const k=cam.dist*2*Math.tan(FOV/2)/canvas.clientHeight;
+  for (let i=0;i<3;i++) cam.target[i]+= -r[i]*dx*k + u[i]*dy*k;
+}
+const ptrs=new Map(); let pinch=null, dragMode="rotate", lastTap=0;
+const pinchInfo=()=>{ const p=[...ptrs.values()]; return {d:Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y)||1, x:(p[0].x+p[1].x)/2, y:(p[0].y+p[1].y)/2}; };
+const touchIdle=()=>{ cam.idleUntil=performance.now()+3500; };
+canvas.addEventListener("pointerdown",e=>{
+  canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  dragMode=(e.button===2||e.shiftKey||e.ctrlKey||e.metaKey)?"pan":"rotate";
+  if (ptrs.size===2) pinch=pinchInfo();
+  cam.vyaw=cam.vpitch=0; touchIdle();
+});
+canvas.addEventListener("pointermove",e=>{
+  const p=ptrs.get(e.pointerId); if(!p) return;
+  const dx=e.clientX-p.x, dy=e.clientY-p.y; p.x=e.clientX; p.y=e.clientY;
+  if (ptrs.size===1){
+    if (dragMode==="rotate"){ cam.vyaw=-dx*0.006; cam.vpitch=dy*0.006; cam.yaw+=cam.vyaw; cam.pitch=Math.max(-1.45,Math.min(1.45,cam.pitch+cam.vpitch)); }
+    else pan(dx,dy);
+  } else if (ptrs.size===2 && pinch){
+    const pi=pinchInfo(); cam.dist=Math.max(2,Math.min(3000,cam.dist*pinch.d/pi.d)); pan(pi.x-pinch.x, pi.y-pinch.y); pinch=pi;
+  }
+  touchIdle();
+});
+const endPtr=e=>{
+  if(!ptrs.has(e.pointerId)) return; ptrs.delete(e.pointerId);
+  if (ptrs.size<2) pinch=null;
+  if (ptrs.size===1){ cam.vyaw=cam.vpitch=0; }
+  if (e.type==="pointerup" && e.pointerType==="touch"){ const now=performance.now(); if(now-lastTap<300){ resetCam(); lastTap=0; } else lastTap=now; }
+  touchIdle();
+};
+canvas.addEventListener("pointerup",endPtr); canvas.addEventListener("pointercancel",endPtr);
+canvas.addEventListener("dblclick",()=>resetCam());
+canvas.addEventListener("contextmenu",e=>e.preventDefault());
+canvas.addEventListener("wheel",e=>{ e.preventDefault(); cam.dist=Math.max(2,Math.min(3000,cam.dist*Math.exp(e.deltaY*0.0012))); touchIdle(); },{passive:false});
+
+/* ------------------------------------------------------------------ */
+/* App state + scene setup                                             */
+/* ------------------------------------------------------------------ */
+const coarse = matchMedia("(pointer:coarse)").matches;
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const state = { list: SCENARIOS.map(s=>normalize(s)), idx:0, sc:null, paused:false, guides:true, autoRotate:!reduced };
+if (coarse) for (const s of state.list) if (s.agents.count>3000) s.agents.count=Math.round(s.agents.count*0.5/100)*100;
+const swarm = new Swarm();
+let gridCount=0, meshCount=0, predMeshCount=0;
+let colors={};
+
+function loadScenario(i){
+  state.idx=i; const sc=state.sc=state.list[i];
+  swarm.load(sc);
+  const m=buildModel(sc.agents.model); gl.bindBuffer(gl.ARRAY_BUFFER,meshBuf); gl.bufferData(gl.ARRAY_BUFFER,m,gl.STATIC_DRAW); meshCount=m.length/4;
+  const pm=buildModel((swarm.B.predator&&swarm.B.predator.model)||sc.agents.model); gl.bindBuffer(gl.ARRAY_BUFFER,predMeshBuf); gl.bufferData(gl.ARRAY_BUFFER,pm,gl.STATIC_DRAW); predMeshCount=pm.length/4;
+  const r=sc.render, sb=rgb(r.sky[0]), st=rgb(r.sky[1]);
+  colors={skyB:sb, skyT:st, fog:r.fogColor?rgb(r.fogColor):mix3(sb,st,0.16), c0:rgb(r.palette[0]), c1:rgb(r.palette[1]), accent:rgb(r.accent), grid:rgb(r.gridColor)};
+  const g=[]; if (r.ground){ const {y,size,step}=r.ground, k=Math.floor(size/step); for(let j=-k;j<=k;j++){ const v=j*step; g.push(-size,y,v, size,y,v, v,y,-size, v,y,size); } }
+  gl.bindBuffer(gl.ARRAY_BUFFER,gridBuf); gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(g.length?g:[0,0,0,0,0,0]),gl.STATIC_DRAW); gridCount=g.length/3;
+  resetCam();
+  document.documentElement.style.setProperty("--accent", r.accent);
+  syncUI();
+}
+
+function buildGuides(){
+  const L=[], sc=state.sc, b=sc.bounds;
+  const seg=(a,c)=>L.push(a[0],a[1],a[2],c[0],c[1],c[2]);
+  const circle=(c,R,plane,nSeg=56)=>{ for(let i=0;i<nSeg;i++){ const t0=i/nSeg*Math.PI*2, t1=(i+1)/nSeg*Math.PI*2;
+    const pt=t=> plane==="xz"?[c[0]+Math.cos(t)*R,c[1],c[2]+Math.sin(t)*R]: plane==="xy"?[c[0]+Math.cos(t)*R,c[1]+Math.sin(t)*R,c[2]]:[c[0],c[1]+Math.cos(t)*R,c[2]+Math.sin(t)*R];
+    seg(pt(t0),pt(t1)); } };
+  const cross=(c,s)=>{ seg([c[0]-s,c[1],c[2]],[c[0]+s,c[1],c[2]]); seg([c[0],c[1]-s,c[2]],[c[0],c[1]+s,c[2]]); seg([c[0],c[1],c[2]-s],[c[0],c[1],c[2]+s]); };
+  const B=swarm.B;
+  for (const at of B.attractors) cross(at.cur, 3);
+  if (B.vortex){ const c=B.vortex.center, h=(b.shape==="sphere"?b.radius:b.halfSize[1])*0.7; seg([c[0],c[1]-h,c[2]],[c[0],c[1]+h,c[2]]); circle(c,(B.vortex.radius||h*0.5)*0.5,"xz"); }
+  if (B.markers){ const fl=b.floor!=null?b.floor:(sc.render.ground?sc.render.ground.y:0); for (const p of B.markers.points){ seg([p[0],fl,p[2]],p); cross(p,1.2); } }
+  if (B.waypoints){ const P=B.waypoints.points; for(let i=1;i<P.length;i++) seg(P[i-1],P[i]); for(const p of P) cross(p,2.5); }
+  if (B.loiter){ const Lo=B.loiter; for (const s of Lo.sites){ const c=s.position, base=[c[0],c[1]+Lo.altitude,c[2]];
+    for(let l=0;l<Lo.layers;l++) circle([base[0],base[1]+l*Lo.layerSpacing,base[2]], s.radius,"xz",64);
+    seg([c[0],c[1],c[2]],base); circle(c,4,"xz",20); cross(c,6); } }
+  return new Float32Array(L.length?L:[0,0,0,0,0,0]);
+}
+
+/* ------------------------------------------------------------------ */
+/* Frame loop                                                          */
+/* ------------------------------------------------------------------ */
+let last=performance.now(), fpsS=60, simS=0, uploadedCap=0, hudT=0;
+function resize(){
+  const dpr=Math.min(window.devicePixelRatio||1, coarse?1.5:2);
+  const w=Math.round(canvas.clientWidth*dpr), h=Math.round(canvas.clientHeight*dpr);
+  if (canvas.width!==w||canvas.height!==h){ canvas.width=w; canvas.height=h; }
+}
+function frame(now){
+  requestAnimationFrame(frame);
+  let dt=Math.min(0.05,(now-last)/1000); last=now;
+  fpsS+=((dt>0?1/dt:60)-fpsS)*0.05;
+  const sc=state.sc;
+  if (!state.paused && sc.simulation.speed>0){
+    const t0=performance.now();
+    let step=dt*sc.simulation.speed; const sub=Math.ceil(step/(1/30));
+    for (let s=0;s<sub;s++) swarm.step(step/sub);
+    simS+=((performance.now()-t0)-simS)*0.08;
+  }
+  if (now>cam.idleUntil && ptrs.size===0){
+    cam.yaw+=cam.vyaw; cam.pitch=Math.max(-1.45,Math.min(1.45,cam.pitch+cam.vpitch)); cam.vyaw*=0.92; cam.vpitch*=0.92;
+    if (state.autoRotate) cam.yaw+=sc.camera.autoRotate*dt;
+  } else if (ptrs.size===0){ cam.yaw+=cam.vyaw; cam.pitch=Math.max(-1.45,Math.min(1.45,cam.pitch+cam.vpitch)); cam.vyaw*=0.92; cam.vpitch*=0.92; }
+  render(now/1000);
+  if (now-hudT>400){ hudT=now; fpsEl.textContent=Math.round(fpsS); simEl.textContent=simS.toFixed(1); }
+}
+
+function render(time){
+  resize();
+  const sc=state.sc, r=sc.render, W=canvas.width, H=canvas.height;
+  gl.viewport(0,0,W,H);
+  const proj=M4.persp(FOV,W/H,0.5,6000), eye=camEye(), view=M4.lookAt(eye,cam.target,[0,1,0]);
+  const invVP=M4.inv(M4.mul(proj,view));
+  gl.disable(gl.CULL_FACE);
+
+  // sky
+  gl.disable(gl.DEPTH_TEST); gl.depthMask(false); gl.disable(gl.BLEND);
+  gl.useProgram(PR.sky.p); gl.uniformMatrix4fv(PR.sky.u.uInvVP,false,invVP); gl.uniform3fv(PR.sky.u.uEye,eye);
+  gl.uniform3fv(PR.sky.u.uSkyB,colors.skyB); gl.uniform3fv(PR.sky.u.uSkyT,colors.skyT);
+  gl.bindVertexArray(emptyVAO); gl.drawArrays(gl.TRIANGLES,0,3);
+
+  // upload instances
+  const n=swarm.n;
+  gl.bindBuffer(gl.ARRAY_BUFFER,instBuf);
+  if (uploadedCap<n){ uploadedCap=n; gl.bufferData(gl.ARRAY_BUFFER,n*32,gl.DYNAMIC_DRAW); }
+  gl.bufferSubData(gl.ARRAY_BUFFER,0,swarm.a,0,n*8);
+  if (swarm.pk){ gl.bindBuffer(gl.ARRAY_BUFFER,predBuf); gl.bufferData(gl.ARRAY_BUFFER,swarm.pa,gl.DYNAMIC_DRAW); }
+
+  gl.enable(gl.DEPTH_TEST); gl.depthMask(true);
+  const additive = r.blend==="additive" && r.mode!=="models";
+  const pxScale = H/(2*Math.tan(FOV/2));
+  const drawAgents=(isPred)=>{
+    const count=isPred?swarm.pk:n; if(!count) return;
+    const size=sc.agents.size*(isPred?swarm.B.predator.scale:1);
+    const c0=isPred?colors.accent:colors.c0, c1=isPred?mix3(colors.accent,[0,0,0],0.25):colors.c1;
+    const add=(!isPred && additive)?1:0;
+    let P;
+    if (r.mode==="points"){ P=PR.points; gl.useProgram(P.p); gl.uniform1f(P.u.uPx,pxScale); gl.uniform1f(P.u.uAdd,add); gl.bindVertexArray(isPred?VAO.pPoints:VAO.points); }
+    else if (r.mode==="discs"){ P=PR.discs; gl.useProgram(P.p); gl.uniform1f(P.u.uAdd,add); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,discTex); gl.uniform1i(P.u.uTex,0); gl.bindVertexArray(isPred?VAO.pDiscs:VAO.discs); }
+    else { P=PR.mesh; gl.useProgram(P.p); const md=isPred?((swarm.B.predator.model)||sc.agents.model):sc.agents.model, an=MODEL_ANIM[md];
+      gl.uniform3fv(P.u.uAxis,an.axis); gl.uniform1f(P.u.uFreq,an.freq*(isPred?0.6:1)); gl.uniform1f(P.u.uAmp,an.amp); gl.uniform1f(P.u.uTime,time); gl.bindVertexArray(isPred?VAO.pMesh:VAO.mesh); }
+    gl.uniformMatrix4fv(P.u.uProj,false,proj); gl.uniformMatrix4fv(P.u.uView,false,view);
+    gl.uniform1f(P.u.uSize,size); gl.uniform1f(P.u.uFog,r.fog); gl.uniform3fv(P.u.uC0,c0); gl.uniform3fv(P.u.uC1,c1);
+    gl.uniform3fv(P.u.uFogColor,colors.fog);
+    if (add){ gl.enable(gl.BLEND); gl.blendFunc(gl.ONE,gl.ONE); gl.depthMask(false); } else { gl.disable(gl.BLEND); gl.depthMask(true); }
+    if (r.mode==="points") gl.drawArrays(gl.POINTS,0,count);
+    else if (r.mode==="discs") gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,4,count);
+    else gl.drawArraysInstanced(gl.TRIANGLES,0,isPred?predMeshCount:meshCount,count);
+  };
+  if (!additive) drawAgents(false);
+  drawAgents(true);
+
+  // ground grid + guides
+  gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+  const L=PR.line; gl.useProgram(L.p); gl.uniformMatrix4fv(L.u.uProj,false,proj); gl.uniformMatrix4fv(L.u.uView,false,view); gl.uniform1f(L.u.uFog,r.fog*0.8);
+  if (gridCount){ gl.uniform4f(L.u.uColor,...colors.grid,0.45); gl.bindVertexArray(VAO.grid); gl.drawArrays(gl.LINES,0,gridCount); }
+  if (state.guides){ const gd=buildGuides(); gl.bindBuffer(gl.ARRAY_BUFFER,guideBuf); gl.bufferData(gl.ARRAY_BUFFER,gd,gl.DYNAMIC_DRAW);
+    gl.uniform4f(L.u.uColor,...colors.accent,0.7); gl.bindVertexArray(VAO.guide); gl.drawArrays(gl.LINES,0,gd.length/3); }
+
+  if (additive) drawAgents(false);
+  gl.bindVertexArray(null); gl.depthMask(true);
+}
+
+/* ------------------------------------------------------------------ */
+/* UI                                                                  */
+/* ------------------------------------------------------------------ */
+const $=id=>document.getElementById(id);
+const fpsEl=$("fps"), simEl=$("simMs");
+const fmt=n=>n.toLocaleString("en-US");
+const countToSlider=c=>Math.round(Math.log(c/50)/Math.log(MAX_AGENTS/50)*1000);
+const sliderToCount=v=>{ const c=50*Math.pow(MAX_AGENTS/50,v/1000); return c<1000?Math.round(c/10)*10:Math.round(c/100)*100; };
+
+function renderList(){
+  const el=$("scList"); el.innerHTML="";
+  state.list.forEach((s,i)=>{
+    const b=document.createElement("button"); b.className="sc-btn"; b.type="button"; b.setAttribute("role","listitem");
+    b.setAttribute("aria-current", i===state.idx?"true":"false");
+    const k=document.createElement("span"); k.className="sc-key"; k.textContent=String(i+1).padStart(2,"0");
+    const nm=document.createElement("span"); nm.className="sc-name"; nm.textContent=s.name;
+    const kd=document.createElement("span"); kd.className="sc-kind"; kd.textContent=s.kind;
+    b.append(k,nm,kd); b.addEventListener("click",()=>{ loadScenario(i); });
+    el.appendChild(b);
+  });
+}
+function syncUI(){
+  const sc=state.sc;
+  $("scName").textContent=sc.name; $("scKind").textContent=sc.kind; $("scCount").textContent=fmt(swarm.n)+" agents";
+  $("scDesc").textContent=sc.description;
+  document.querySelectorAll("#modeSeg button").forEach(b=>b.setAttribute("aria-pressed", b.dataset.mode===sc.render.mode?"true":"false"));
+  $("cnt").value=countToSlider(sc.agents.count); $("cntOut").textContent=fmt(sc.agents.count);
+  $("size").value=sc.agents.size; $("sizeOut").textContent=sc.agents.size.toFixed(2);
+  $("speed").value=sc.simulation.speed; $("speedOut").textContent=sc.simulation.speed.toFixed(2)+"×";
+  renderList();
+}
+document.querySelectorAll("#modeSeg button").forEach(b=>b.addEventListener("click",()=>{ state.sc.render.mode=b.dataset.mode; syncUI(); }));
+$("cnt").addEventListener("input",e=>{ $("cntOut").textContent=fmt(sliderToCount(+e.target.value)); });
+$("cnt").addEventListener("change",e=>{ const c=sliderToCount(+e.target.value); state.sc.agents.count=c; swarm.setCount(c); syncUI(); });
+$("size").addEventListener("input",e=>{ state.sc.agents.size=+e.target.value; $("sizeOut").textContent=(+e.target.value).toFixed(2); });
+$("speed").addEventListener("input",e=>{ state.sc.simulation.speed=+e.target.value; $("speedOut").textContent=(+e.target.value).toFixed(2)+"×"; });
+const toggle=(id,key)=>{ const b=$(id); b.addEventListener("click",()=>{ state[key]=!state[key]; b.setAttribute("aria-pressed",String(state[key])); if(id==="bPause") b.textContent=state.paused?"Resume":"Pause"; }); };
+toggle("bPause","paused"); toggle("bGuides","guides"); toggle("bRotate","autoRotate");
+$("bRotate").setAttribute("aria-pressed",String(state.autoRotate));
+$("bReset").addEventListener("click",resetCam);
+$("grab").addEventListener("click",()=>{ const p=$("panel"), c=p.classList.toggle("collapsed"); $("grab").setAttribute("aria-expanded",String(!c)); $("grabArrow").textContent=c?"▲":"▼"; });
+
+/* JSON import / export */
+function currentJSON(scope){
+  const sc=state.sc; sc.camera={distance:+cam.dist.toFixed(2), yaw:+cam.yaw.toFixed(3), pitch:+cam.pitch.toFixed(3), target:cam.target.map(v=>+v.toFixed(2)), autoRotate:sc.camera.autoRotate};
+  return JSON.stringify(scope==="all"?state.list:sc,null,2);
+}
+function applyJSON(text, msgEl){
+  let data; try{ data=JSON.parse(text); }catch(e){ throw new Error("That isn't valid JSON: "+e.message); }
+  const arr=Array.isArray(data)?data:[data]; if(!arr.length) throw new Error("The file has no scenarios in it.");
+  const norm=arr.map(normalize);
+  let first=-1;
+  for (const s of norm){
+    const at=state.list.findIndex(x=>x.id===s.id);
+    if (at>=0){ state.list[at]=s; if(first<0) first=at; } else { state.list.push(s); if(first<0) first=state.list.length-1; }
+  }
+  loadScenario(first);
+  return norm.length;
+}
+async function saveFile(name, text, msgEl){
+  const say=(t,err)=>{ msgEl.textContent=t; msgEl.classList.toggle("err",!!err); };
+  if (window.claude && typeof window.claude.use==="function"){
+    let d=null; try{ d=await window.claude.use("downloads"); }catch(_){}
+    if (!d){ say("Saving files isn't available here. Use Copy and paste into a .json file.",true); return; }
+    try{ await d.save({filename:name, data:text}); say("Saved "+name+"."); }
+    catch(e){ say(e&&e.code==="declined"?"Save cancelled.":"Couldn't save the file ("+(e&&e.message||"unknown error")+"). Use Copy instead.", e&&e.code!=="declined"); }
+  } else {
+    const url=URL.createObjectURL(new Blob([text],{type:"application/json"}));
+    const a=document.createElement("a"); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),2000); say("Saved "+name+".");
+  }
+}
+const sheet=$("sheet"), jt=$("jsonText"), sMsg=$("sheetMsg");
+function openSheet(){ jt.value=currentJSON($("scope").value); sMsg.textContent=""; sMsg.classList.remove("err"); sheet.hidden=false; jt.focus(); }
+$("bEdit").addEventListener("click",openSheet);
+$("scope").addEventListener("change",()=>{ jt.value=currentJSON($("scope").value); });
+$("sClose").addEventListener("click",()=>{ sheet.hidden=true; });
+sheet.addEventListener("click",e=>{ if(e.target===sheet) sheet.hidden=true; });
+$("sApply").addEventListener("click",()=>{
+  try{ const k=applyJSON(jt.value); sMsg.classList.remove("err"); sMsg.textContent=k===1?"Applied. Now showing "+state.sc.name+".":"Applied "+k+" scenarios."; }
+  catch(e){ sMsg.classList.add("err"); sMsg.textContent=e.message; }
+});
+$("sCopy").addEventListener("click",()=>{
+  const ok=()=>{ sMsg.classList.remove("err"); sMsg.textContent="Copied to clipboard."; };
+  try{ navigator.clipboard.writeText(jt.value).then(ok,()=>{ jt.select(); sMsg.textContent="Text selected. Press Ctrl+C or ⌘C to copy."; }); }
+  catch(_){ jt.select(); sMsg.textContent="Text selected. Press Ctrl+C or ⌘C to copy."; }
+});
+const fileName=()=>$("scope").value==="all"?"swarm-scenarios.json":state.sc.id+".json";
+$("sSave").addEventListener("click",()=>saveFile(fileName(), jt.value, sMsg));
+$("bSave").addEventListener("click",()=>saveFile(state.sc.id+".json", currentJSON("one"), $("toast")));
+$("bOpen").addEventListener("click",()=>$("fileIn").click());
+$("fileIn").addEventListener("change",async e=>{
+  const f=e.target.files[0]; if(!f) return; const t=$("toast");
+  try{ const k=applyJSON(await f.text()); t.classList.remove("err"); t.textContent="Loaded "+k+(k===1?" scenario":" scenarios")+" from "+f.name+"."; }
+  catch(err){ t.classList.add("err"); t.textContent=err.message; }
+  e.target.value="";
+});
+window.addEventListener("keydown",e=>{
+  if (e.target.closest("textarea,input,select")) return;
+  if (e.key==="Escape"&&!sheet.hidden){ sheet.hidden=true; return; }
+  if (!sheet.hidden) return;
+  if (e.key===" "){ e.preventDefault(); $("bPause").click(); }
+  else if (e.key==="g"||e.key==="G") $("bGuides").click();
+  else if (/^[1-9]$/.test(e.key) && +e.key<=state.list.length) loadScenario(+e.key-1);
+});
+if (!coarse){ $("panel").classList.remove("collapsed"); }
+
+loadScenario(0);
+requestAnimationFrame(t=>{ last=t; frame(t); });
+</script>
+</body>
+</html>
